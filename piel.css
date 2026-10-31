@@ -92,3 +92,7 @@ tr:hover td{background:transparent!important}
 .mm-foto-acciones{display:flex;gap:10px;flex-wrap:wrap;margin:6px 0}
 .mm-foto-acciones button{flex:1 1 160px;min-height:52px;background:var(--mm-brand-2)!important;color:var(--azul)!important;font-size:16px!important}
 .mm-foto-oculto{position:absolute!important;width:1px!important;height:1px!important;opacity:0!important;pointer-events:none!important;min-height:0!important;padding:0!important;border:0!important}
+
+/* Textos con aviso en rojo (por ejemplo "Reabierto … falta: …") y fuente normal en áreas de texto */
+.pequeno[style*="b3261e"]{color:var(--rojo)!important;font-weight:600!important}
+textarea,input,select{font-family:inherit!important}
