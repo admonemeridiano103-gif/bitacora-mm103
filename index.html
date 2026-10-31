@@ -34,7 +34,7 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:16px/
 </div>
 <script>
 'use strict';
-var SHELL_VERSION = '0.2.0';
+var SHELL_VERSION = '0.3.0';
 var API_URL = 'https://script.google.com/macros/s/AKfycbxzVSB0hEQgd9TW01NhmVffLJyioYIg0cRhdRcLxAbYOcT8hCvG-8yA2vi6bA8g936cRw/exec';
 
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(function () {});
@@ -89,6 +89,8 @@ function mostrarApp(html) {
     '<title>Bitácora MM103</title><script src="puente.js"><\/script>';
   html = html.replace(/<base[^>]*>/i, '');
   html = /<head[^>]*>/i.test(html) ? html.replace(/<head[^>]*>/i, function (m) { return m + cabeza; }) : cabeza + html;
+  // La piel va al final de <head> para que gane sobre los estilos originales.
+  html = /<\/head>/i.test(html) ? html.replace(/<\/head>/i, '<link rel="stylesheet" href="piel.css"></head>') : html + '<link rel="stylesheet" href="piel.css">';
   document.open();
   document.write(html);
   document.close();

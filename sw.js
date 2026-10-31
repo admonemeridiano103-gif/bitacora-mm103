@@ -1,7 +1,7 @@
 // Service worker — Bitácora MM103 offline
-var VERSION = '0.2.0';
+var VERSION = '0.3.0';
 var CACHE = 'bitacora-mm103-' + VERSION;
-var SHELL = ['./', 'index.html', 'puente.js', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'icon-maskable-512.png', 'apple-touch-icon.png', 'favicon-32.png'];
+var SHELL = ['./', 'index.html', 'puente.js', 'piel.css', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'icon-maskable-512.png', 'apple-touch-icon.png', 'favicon-32.png'];
 var EXTERNOS = ['https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'];
 
 self.addEventListener('install', function (e) {

@@ -14,7 +14,7 @@
   if (window.__MM103_PUENTE) return;
   window.__MM103_PUENTE = true;
 
-  var VERSION = '0.2.0';
+  var VERSION = '0.3.0';
   var API_URL = 'https://script.google.com/macros/s/AKfycbxzVSB0hEQgd9TW01NhmVffLJyioYIg0cRhdRcLxAbYOcT8hCvG-8yA2vi6bA8g936cRw/exec';
 
   var SIN_TOKEN = { login: 1, solicitarCodigoAcceso: 1, crearCredenciales: 1, restablecerPassword: 1, obtenerPermisos: 1 };
@@ -129,7 +129,12 @@
     return Array.prototype.map.call(a, function (b) { return ('0' + b.toString(16)).slice(-2); }).join('');
   }
   function clon(x) { return x == null ? x : JSON.parse(JSON.stringify(x)); }
-  function claveCache(fn, args) { return fn + '|' + JSON.stringify(SIN_TOKEN[fn] ? args : args.slice(1)); }
+  // La clave ignora el token y los argumentos vacíos al final: listarColaDelDia(TOKEN) y listarColaDelDia(TOKEN, null) son lo mismo.
+  function claveCache(fn, args) {
+    var a = (SIN_TOKEN[fn] ? args : args.slice(1)).slice();
+    while (a.length && (a[a.length - 1] === null || a[a.length - 1] === undefined || a[a.length - 1] === '')) a.pop();
+    return fn + '|' + JSON.stringify(a);
+  }
   function guardarCache(clave, valor) { CACHE[clave] = { v: valor, t: Date.now() }; poner('cache', clave, CACHE[clave]); }
   function leerCache(clave) { return CACHE[clave] ? CACHE[clave].v : undefined; }
   function yo() { return META.usuario || null; }
@@ -470,7 +475,7 @@
       };
       if (OUTBOX.length || !navigator.onLine) return optimista();
       var op = { opId: uuid(), fn: fn, args: args, ts: Date.now() };
-      return post({ accion: 'ops', ops: [op] }, 45000).then(function (resp) {
+      return post({ accion: 'ops', ops: [op] }, 15000).then(function (resp) {
         var res = resp.resultados && resp.resultados[0];
         if (!res.ok) return mal(res.error);
         aplicarDatosServidor(res.resultado);
@@ -610,6 +615,73 @@
     });
     navigator.serviceWorker.addEventListener('message', function (ev) { if (ev.data === 'mm103-subir') programarSync(0); });
   }
+
+  // ---------------------------------------------------------------- mejoras de interfaz (estilo Mi Clóset)
+  // 1) Cada campo de foto muestra dos botones grandes: Tomar foto / Elegir de la galería.
+  function mejorarFotos(raiz) {
+    var campos = (raiz || document).querySelectorAll('input[type=file]:not([data-mm])');
+    Array.prototype.forEach.call(campos, function (orig) {
+      if (!/image/.test(orig.accept || '')) return;
+      orig.setAttribute('data-mm', '1');
+      orig.classList.add('mm-foto-oculto');
+      function ayudante(camara) {
+        var i = document.createElement('input');
+        i.type = 'file'; i.accept = 'image/*'; i.className = 'mm-foto-oculto'; i.setAttribute('data-mm', '1');
+        if (camara) i.setAttribute('capture', 'environment');
+        if (orig.multiple && !camara) i.multiple = true;
+        i.addEventListener('change', function () {
+          if (!i.files || !i.files.length) return;
+          try {
+            var dt = new DataTransfer();
+            Array.prototype.forEach.call(i.files, function (f) { dt.items.add(f); });
+            orig.files = dt.files;
+            orig.dispatchEvent(new Event('change', { bubbles: true }));
+          } catch (e) { console.warn('foto', e); }
+          i.value = '';
+        });
+        return i;
+      }
+      var cam = ayudante(true), gal = ayudante(false);
+      var caja = document.createElement('div'); caja.className = 'mm-foto-acciones';
+      var b1 = document.createElement('button'); b1.type = 'button'; b1.textContent = '📷 Tomar foto'; b1.onclick = function () { cam.click(); };
+      var b2 = document.createElement('button'); b2.type = 'button'; b2.textContent = '🖼 Elegir de la galería'; b2.onclick = function () { gal.click(); };
+      caja.appendChild(b1); caja.appendChild(b2); caja.appendChild(cam); caja.appendChild(gal);
+      orig.parentNode.insertBefore(caja, orig.nextSibling);
+    });
+  }
+  // 2) En pantallas angostas, cada renglón de tabla se ve como tarjeta (con la etiqueta de cada dato).
+  function mejorarTablas(raiz) {
+    var tablas = (raiz || document).querySelectorAll('table');
+    Array.prototype.forEach.call(tablas, function (t) {
+      if (t.closest('.tabla-sticky-wrap')) return;            // la matriz de permisos se queda como tabla
+      var ths = t.querySelectorAll('thead th'); if (!ths.length) return;
+      t.classList.add('mm-tarjetas');
+      var et = Array.prototype.map.call(ths, function (h) { return h.textContent.trim(); });
+      var iTitulo = et.findIndex(function (x) { return /^(Tarea|Material|Nombre|Equipo|Mensaje|Descripción|Técnico)$/i.test(x); });
+      Array.prototype.forEach.call(t.querySelectorAll('tbody tr'), function (tr) {
+        Array.prototype.forEach.call(tr.children, function (td, k) {
+          if (td.getAttribute('data-mm-l') === '1') return;
+          td.setAttribute('data-mm-l', '1');
+          if (td.hasAttribute('colspan')) return;
+          var tieneBoton = !!td.querySelector('button');
+          if (tieneBoton && !td.textContent.replace(/\s/g, '').replace(/[^\w]/g, '').length || (tieneBoton && !et[k])) td.classList.add('mm-acciones');
+          else if (k === iTitulo) td.classList.add('mm-titulo');
+          else if (et[k]) td.setAttribute('data-et', et[k]);
+          if (!td.textContent.trim() && !td.querySelector('img,button,input,select')) td.classList.add('mm-vacia');
+        });
+      });
+    });
+  }
+  var mejoraPendiente = false;
+  function programarMejoras() {
+    if (mejoraPendiente) return; mejoraPendiente = true;
+    requestAnimationFrame(function () { mejoraPendiente = false; try { mejorarFotos(); mejorarTablas(); } catch (e) { console.warn(e); } });
+  }
+  function iniciarMejoras() {
+    programarMejoras();
+    try { new MutationObserver(programarMejoras).observe(document.body, { childList: true, subtree: true }); } catch (e) {}
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', iniciarMejoras); else iniciarMejoras();
 
   // Para pruebas y diagnóstico
   window.MM103 = {
