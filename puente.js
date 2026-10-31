@@ -14,7 +14,7 @@
   if (window.__MM103_PUENTE) return;
   window.__MM103_PUENTE = true;
 
-  var VERSION = '0.3.0';
+  var VERSION = '0.4.0';
   var API_URL = 'https://script.google.com/macros/s/AKfycbxzVSB0hEQgd9TW01NhmVffLJyioYIg0cRhdRcLxAbYOcT8hCvG-8yA2vi6bA8g936cRw/exec';
 
   var SIN_TOKEN = { login: 1, solicitarCodigoAcceso: 1, crearCredenciales: 1, restablecerPassword: 1, obtenerPermisos: 1 };
@@ -29,10 +29,14 @@
   var LOCAL_PRIMERO = {
     tomarTarea: 1, completarTarea: 1, pausarTareaManual: 1, devolverTareaACola: 1, registrarLecturaEquipo: 1,
     registrarConsumoMaterial: 1, registrarSalidaMaterial: 1, registrarEntradaMaterial: 1,
-    iniciarComida: 1, terminarComida: 1, atenderTicket: 1
+    iniciarComida: 1, terminarComida: 1, atenderTicket: 1,
+    // Administración (v0.4): responden al instante y se suben por detrás.
+    crearTicket: 1, editarTicket: 1, cancelarTicket: 1, reabrirTrabajoCompletado: 1, moverTareaEnCola: 1, moverTicketEnCola: 1,
+    actualizarPermiso: 1, cambiarEstadoTrabajoExtra: 1, cambiarActivoTarea: 1, cambiarEstadoUsuario: 1, editarUsuario: 1,
+    guardarTrabajoExtra: 1, guardarTarea: 1, guardarMaterialAlmacen: 1
   };
   // Se intentan en línea; si no hay señal, se guardan para subirlos después.
-  var RED_PRIMERO_CON_RESPALDO = { saltarTareaConCodigo: 1, crearTicket: 1, ajustarExistenciaMaterial: 1, reanudarTareaPausada: 1 };
+  var RED_PRIMERO_CON_RESPALDO = { saltarTareaConCodigo: 1, ajustarExistenciaMaterial: 1, reanudarTareaPausada: 1 };
 
   function esConsulta(fn) {
     return /^(listar|obtener|opciones|proximas|rolesDisponibles|validarSesion)/.test(fn);
@@ -269,12 +273,108 @@
     },
     crearTicket: function (a) {
       var d = a[1] || {}; var tk = clon(leerCache('listarTickets|[]')) || []; var me = yo() || {};
-      tk.unshift({ ticket_id: '(por subir)', estado: 'Abierto', mensaje: d.mensaje, prioridad: d.prioridad, dirigido_a: d.dirigido_a,
+      var tmp = 'TK-NUEVO-' + uuid().slice(0, 5).toUpperCase();
+      tk.unshift({ ticket_id: tmp, estado: 'Abierto', mensaje: d.mensaje, prioridad: d.prioridad, dirigido_a: d.dirigido_a,
         creado_por_nombre: me.nombre_completo || '', fecha_hora_creacion: new Date().toLocaleString('es-MX') });
       guardarCache('listarTickets|[]', tk);
-      return { r: { ok: true, ticket_id: '(se enviará al tener señal)', tickets: tk } };
+      var c = colaLocal();
+      if (c) {
+        c.unshift({ registro_id: 'REG-' + tmp, tipo_origen: 'Ticket', origen_id: tmp, nombre_tarea: d.mensaje || 'Ticket', prioridad: d.prioridad || 'Media',
+          estado: 'Pendiente', usuario_asignado_actual: (d.dirigido_a && d.dirigido_a !== 'ABIERTO') ? d.dirigido_a : '', orden_cola: 0, posicion: 0 });
+        setCola(numerar(c));
+      }
+      return { tmp: tmp, r: { ok: true, ticket_id: tmp, tickets: tk, cola: c } };
+    },
+    editarTicket: function (a) {
+      var id = a[1], cb = a[2] || {}; var tk = clon(leerCache('listarTickets|[]')); if (!tk) return { r: { ok: true } };
+      tk.forEach(function (t) { if (t.ticket_id === id) ['mensaje', 'prioridad', 'dirigido_a'].forEach(function (k) { if (cb[k] !== undefined && String(cb[k]).trim() !== '') t[k] = cb[k]; }); });
+      guardarCache('listarTickets|[]', tk);
+      var c = colaLocal();
+      if (c) { c.forEach(function (f) { if (f.tipo_origen === 'Ticket' && f.origen_id === id) { if (cb.mensaje) f.nombre_tarea = cb.mensaje; if (cb.prioridad) f.prioridad = cb.prioridad; } }); setCola(c); }
+      return { r: { ok: true, tickets: tk, cola: c } };
+    },
+    cancelarTicket: function (a) {
+      var id = a[1]; var tk = clon(leerCache('listarTickets|[]')) || [];
+      tk.forEach(function (t) { if (t.ticket_id === id) t.estado = 'Cancelado'; });
+      guardarCache('listarTickets|[]', tk);
+      var c = colaLocal();
+      if (c) { c = c.filter(function (f) { return !(f.tipo_origen === 'Ticket' && f.origen_id === id && f.estado !== 'Completada'); }); setCola(numerar(c)); }
+      return { r: { ok: true, tickets: tk, cola: c } };
+    },
+    reabrirTrabajoCompletado: function (a) {
+      var c = colaLocal(); var t = buscar(c, a[1]); if (!t) return null; var me = yo() || {};
+      t.estado = 'Pendiente'; t.usuario_asignado_actual = ''; t.hora_inicio = ''; t.hora_fin = ''; t.tiempo_total_minutos = '';
+      t.motivo_reapertura = a[2]; t.reabierto_por = me.nombre_completo || ''; t.reabierto_veces = (Number(t.reabierto_veces) || 0) + 1;
+      t.fotos_reapertura = [];
+      setCola(c); return { r: { ok: true, cola: c } };
+    },
+    moverTareaEnCola: function (a) { return moverEnCola(a[1], a[2]); },
+    moverTicketEnCola: function (a) { return moverEnCola(a[1], a[2]); },
+    actualizarPermiso: function () { return { r: { ok: true } }; },
+    cambiarEstadoTrabajoExtra: function (a) {
+      parcharListas('listarTrabajosExtra|', function (l) { l.forEach(function (x) { if (x.id === a[1]) x.estado = a[2]; }); });
+      return { r: { ok: true } };
+    },
+    cambiarActivoTarea: function (a) {
+      parcharListas('listarCatalogoTareas|', function (l) { l.forEach(function (x) { if (x.tarea_id === a[1]) x.activo = a[2]; }); });
+      return { r: { ok: true } };
+    },
+    cambiarEstadoUsuario: function (a) {
+      parcharListas('listarUsuarios|', function (l) { l.forEach(function (x) { if (x.id_usuario === a[1]) x.estado = a[2]; }); });
+      return { r: { ok: true } };
+    },
+    editarUsuario: function (a) {
+      var d = a[2] || {};
+      parcharListas('listarUsuarios|', function (l) { l.forEach(function (x) { if (x.id_usuario === a[1]) Object.keys(d).forEach(function (k) { x[k] = d[k]; }); }); });
+      return { r: { ok: true } };
+    },
+    // Las altas nuevas necesitan el número que da el servidor: solo las ediciones van al instante.
+    guardarTrabajoExtra: function (a) {
+      var d = a[1] || {}; if (!d.id) return null;
+      parcharListas('listarTrabajosExtra|', function (l) { l.forEach(function (x) { if (x.id === d.id) Object.keys(d).forEach(function (k) { x[k] = d[k]; }); }); });
+      return { r: { ok: true, id: d.id } };
+    },
+    guardarTarea: function (a) {
+      var d = a[1] || {}; if (!d.tarea_id) return null;
+      parcharListas('listarCatalogoTareas|', function (l) { l.forEach(function (x) { if (x.tarea_id === d.tarea_id) Object.keys(d).forEach(function (k) { x[k] = d[k]; }); }); });
+      return { r: { ok: true, tarea_id: d.tarea_id } };
+    },
+    guardarMaterialAlmacen: function (a) {
+      var d = a[1] || {}; if (!d.material_id) return null;
+      parcharListas('listarAlmacen|', function (l) { l.forEach(function (x) { if (x.material_id === d.material_id) Object.keys(d).forEach(function (k) { x[k] = d[k]; }); }); });
+      return { r: { ok: true, material_id: d.material_id } };
     }
   };
+  function numerar(c) { ordenar(c).forEach(function (f, i) { f.posicion = i + 1; f.orden_cola = i + 1; }); return ordenar(c); }
+  function moverEnCola(regId, destino) {
+    var c = colaLocal(); if (!c) return null;
+    var lista = ordenar(c); var i = lista.findIndex(function (f) { return f.registro_id === regId; }); if (i < 0) return null;
+    var item = lista.splice(i, 1)[0]; var j;
+    if (destino === 'subir' || destino === 'arriba') j = Math.max(0, i - 1);
+    else if (destino === 'bajar' || destino === 'abajo') j = Math.min(lista.length, i + 1);
+    else if (!isNaN(Number(destino))) j = Math.max(0, Math.min(lista.length, Number(destino) - 1));
+    else return null;
+    lista.splice(j, 0, item);
+    lista.forEach(function (f, k) { f.posicion = k + 1; f.orden_cola = k + 1; });
+    setCola(lista); return { r: { ok: true, cola: lista } };
+  }
+  function parcharListas(prefijo, fn) {
+    Object.keys(CACHE).forEach(function (k) {
+      if (k.indexOf(prefijo) !== 0) return;
+      var l = clon(CACHE[k].v); if (!Array.isArray(l)) return;
+      fn(l); guardarCache(k, l);
+    });
+  }
+  // Un ticket creado sin esperar al servidor lleva un número temporal; al subirse se cambia por el real
+  // en lo que siga pendiente (editar o cancelar ese mismo ticket, por ejemplo).
+  function cambiarIdTemporal(tmp, real) {
+    if (!tmp || !real || tmp === real) return;
+    OUTBOX.forEach(function (o) {
+      var txt = JSON.stringify(o.args);
+      if (txt.indexOf(tmp) === -1) return;
+      o.args = JSON.parse(txt.split(tmp).join(real)); poner('outbox', o.opId, o);
+    });
+  }
   function movimiento(materialId, delta) {
     var alm = clon(leerCache('listarAlmacen|[]')); if (!alm) return null;
     var nuevo = null;
@@ -302,8 +402,8 @@
 
   // ---------------------------------------------------------------- bandeja de salida
   var seq = Date.now();
-  function encolar(fn, args) {
-    var op = { opId: uuid(), fn: fn, args: args, ts: Date.now(), seq: seq++, intentos: 0 };
+  function encolar(fn, args, tmp) {
+    var op = { opId: uuid(), fn: fn, args: args, ts: Date.now(), seq: seq++, intentos: 0, tmp: tmp || null };
     OUTBOX.push(op); poner('outbox', op.opId, op); pintarPastilla();
     return op;
   }
@@ -327,6 +427,7 @@
       quitarDeBandeja(op);
       METRICAS.push({ fn: op.fn, origen: 'subida', ms: null, red: Math.round(resp._ms), t: Date.now() });
       if (res.ok && !(valor && valor.ok === false)) {
+        if (op.tmp && valor && valor.ticket_id) cambiarIdTemporal(op.tmp, valor.ticket_id);
         aplicarDatosServidor(valor);
       } else {
         var msg = res.error || (valor && (valor.mensaje || (valor.necesitaMotivo ? 'Faltó indicar el motivo de la pausa.' : ''))) || 'El servidor no aceptó el cambio.';
@@ -352,17 +453,25 @@
     return ({ tomarTarea: 'Tomar tarea', completarTarea: 'Completar tarea', pausarTareaManual: 'Pausar tarea', devolverTareaACola: 'Regresar a la cola',
       registrarLecturaEquipo: 'Lectura de equipo', registrarConsumoMaterial: 'Consumo de material', registrarSalidaMaterial: 'Salida de material',
       registrarEntradaMaterial: 'Entrada de material', iniciarComida: 'Iniciar comida', terminarComida: 'Terminar comida', atenderTicket: 'Atender ticket',
-      crearTicket: 'Crear ticket', saltarTareaConCodigo: 'Saltar tarea', ajustarExistenciaMaterial: 'Ajustar existencia' })[fn] || fn;
+      crearTicket: 'Crear ticket', saltarTareaConCodigo: 'Saltar tarea', ajustarExistenciaMaterial: 'Ajustar existencia',
+      editarTicket: 'Editar ticket', cancelarTicket: 'Cancelar ticket', reabrirTrabajoCompletado: 'Volver a abrir trabajo', moverTareaEnCola: 'Mover en la cola',
+      moverTicketEnCola: 'Mover ticket', actualizarPermiso: 'Cambiar permiso', cambiarEstadoTrabajoExtra: 'Estado de trabajo extra', cambiarActivoTarea: 'Activar/desactivar tarea',
+      cambiarEstadoUsuario: 'Estado de usuario', editarUsuario: 'Editar usuario', guardarTrabajoExtra: 'Editar trabajo extra', guardarTarea: 'Editar tarea', guardarMaterialAlmacen: 'Editar material' })[fn] || fn;
   }
   // Tras subir todo, pide al servidor las listas frescas y repinta lo que esté a la vista.
   function refrescarPantalla() {
     if (!window.TOKEN || !window.ESTADO || !window.ESTADO.usuarioActual) return;
     var p = window.ESTADO.usuarioActual.permisos || {};
-    var pares = [['listarColaDelDia', 'pintarColaHoy'], ['listarChecklistEquiposDelDia', 'pintarChecklistEquipos'], ['listarTickets', 'pintarTickets'], ['listarAlmacen', 'pintarAlmacen']];
+    var pares = [['listarColaDelDia', 'pintarColaHoy'], ['listarChecklistEquiposDelDia', 'pintarChecklistEquipos'], ['listarTickets', 'pintarTickets'], ['listarAlmacen', 'pintarAlmacen'],
+      ['listarTrabajosExtra', 'pintarTrabajosExtra'], ['listarCatalogoTareas', 'pintarCatalogoTareas'], ['listarUsuarios', 'pintarUsuarios']];
     pares.forEach(function (par) {
       if (typeof window[par[1]] !== 'function') return;
-      llamar(par[0], [window.TOKEN]).then(function (x) {
-        var clave = claveCache(par[0], [window.TOKEN]);
+      // Solo listas que la tableta ya tiene (o sea, que esta persona puede ver).
+      var claves = Object.keys(CACHE).filter(function (k) { return k.indexOf(par[0] + '|') === 0; });
+      if (!claves.length && par[0] !== 'listarColaDelDia') return;
+      var extra = claves.length ? JSON.parse(claves[0].slice(par[0].length + 1)) : [];
+      llamar(par[0], [window.TOKEN].concat(extra)).then(function (x) {
+        var clave = claveCache(par[0], [window.TOKEN].concat(extra));
         var antes = JSON.stringify(leerCache(clave));
         guardarCache(clave, x.resultado);
         if (JSON.stringify(x.resultado) !== antes) repintar(par[1], x.resultado);
@@ -460,7 +569,7 @@
     if (LOCAL_PRIMERO[fn] && OPTIMISTA[fn]) {
       var o = OPTIMISTA[fn](args);
       if (o) {
-        if (!o.sinCola) { encolar(fn, args); programarSync(50); }
+        if (!o.sinCola) { encolar(fn, args, o.tmp); programarSync(50); }
         return ok(o.r, 'local');
       }
     }
