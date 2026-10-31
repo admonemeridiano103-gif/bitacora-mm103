@@ -1,0 +1,486 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Bitácora MM103</title>
+<meta name="description" content="Bitácora de Mantenimiento MM103 — funciona sin internet">
+<meta name="theme-color" content="#0f5e63">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="favicon-32.png" sizes="32x32">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<style>
+:root{
+  --bg:#f3f5f6; --card:#ffffff; --text:#14212b; --muted:#5d6b76; --line:#dde3e7;
+  --brand:#0f5e63; --brand-2:#e3f1f1; --ok:#1e7d3c; --ok-bg:#e4f4e8; --warn:#9a5b00; --warn-bg:#fdf1dc;
+  --bad:#b3261e; --bad-bg:#fbe6e4; --info:#1d4f91; --info-bg:#e5eefb; --shadow:0 1px 2px rgba(0,0,0,.06),0 2px 8px rgba(0,0,0,.05);
+}
+@media (prefers-color-scheme: dark){
+  :root{ --bg:#0f1418; --card:#182027; --text:#e6edf2; --muted:#9aa9b4; --line:#2a353e;
+    --brand:#4fb3b8; --brand-2:#163a3c; --ok:#6fd08c; --ok-bg:#16301f; --warn:#f2b84b; --warn-bg:#3a2c12;
+    --bad:#ff8a80; --bad-bg:#3d1b19; --info:#8ab4f8; --info-bg:#172a45; --shadow:none; }
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font:16px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-text-size-adjust:100%}
+button,input{font:inherit;color:inherit}
+.oculto{display:none!important}
+header{position:sticky;top:0;z-index:5;background:var(--brand);color:#fff;padding:calc(10px + env(safe-area-inset-top)) 16px 10px;display:flex;align-items:center;gap:10px}
+header h1{font-size:18px;margin:0;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.estado-red{font-size:13px;padding:4px 10px;border-radius:999px;background:rgba(255,255,255,.18);white-space:nowrap}
+.estado-red.off{background:#b3261e}
+main{padding:12px 16px calc(84px + env(safe-area-inset-bottom));max-width:820px;margin:0 auto}
+.barra-sync{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);margin:0 0 10px}
+.barra-sync .fill{flex:1}
+.btn{min-height:46px;border:0;border-radius:12px;padding:10px 16px;background:var(--brand);color:#fff;font-weight:600;cursor:pointer}
+.btn.sec{background:var(--brand-2);color:var(--brand)}
+.btn.chico{min-height:38px;padding:6px 12px;font-size:14px}
+.btn:disabled{opacity:.55}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin:0 0 10px;box-shadow:var(--shadow)}
+.card h3{margin:0 0 4px;font-size:16px}
+.fila{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.muted{color:var(--muted);font-size:14px}
+.chip{display:inline-block;font-size:12px;font-weight:600;padding:3px 8px;border-radius:999px;background:var(--brand-2);color:var(--brand)}
+.chip.ok{background:var(--ok-bg);color:var(--ok)} .chip.warn{background:var(--warn-bg);color:var(--warn)}
+.chip.bad{background:var(--bad-bg);color:var(--bad)} .chip.info{background:var(--info-bg);color:var(--info)}
+.aviso{border-radius:12px;padding:10px 12px;margin:0 0 10px;font-size:14px;background:var(--info-bg);color:var(--info)}
+.aviso.error{background:var(--bad-bg);color:var(--bad)}
+.aviso.warn{background:var(--warn-bg);color:var(--warn)}
+.num{min-width:30px;height:30px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;background:var(--brand-2);color:var(--brand);font-weight:700;font-size:14px}
+.mia{border-left:5px solid var(--brand)}
+details summary{cursor:pointer;color:var(--brand);font-size:14px;margin-top:6px;min-height:32px;display:flex;align-items:center}
+ol.pasos{margin:6px 0 0;padding-left:22px}
+ol.pasos li{margin:3px 0}
+nav.inferior{position:fixed;left:0;right:0;bottom:0;z-index:6;background:var(--card);border-top:1px solid var(--line);display:flex;padding-bottom:env(safe-area-inset-bottom)}
+nav.inferior button{flex:1;min-height:60px;border:0;background:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:12px;color:var(--muted);cursor:pointer}
+nav.inferior button .ic{font-size:20px;line-height:1}
+nav.inferior button.activo{color:var(--brand);font-weight:700}
+.buscador{position:relative;margin:0 0 10px}
+.buscador input{width:100%;min-height:48px;border:1px solid var(--line);border-radius:12px;background:var(--card);padding:10px 44px 10px 14px}
+.buscador input::-webkit-search-cancel-button{-webkit-appearance:none}
+.buscador button{position:absolute;right:4px;top:4px;width:40px;height:40px;border:0;background:none;font-size:20px;color:var(--muted)}
+mark{background:#ffe08a;color:inherit;border-radius:3px}
+.login{max-width:380px;margin:40px auto 0}
+.login label{display:block;font-size:14px;color:var(--muted);margin:12px 0 4px}
+.login input[type=text],.login input[type=password]{width:100%;min-height:48px;border:1px solid var(--line);border-radius:12px;background:var(--card);padding:10px 14px}
+.login .logo{display:block;width:84px;height:84px;margin:0 auto 10px;border-radius:20px}
+.grupo{font-size:13px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin:16px 0 8px}
+.vacio{text-align:center;color:var(--muted);padding:30px 10px}
+.toast{position:fixed;left:50%;bottom:calc(76px + env(safe-area-inset-bottom));transform:translateX(-50%);background:#14212b;color:#fff;padding:10px 16px;border-radius:12px;font-size:14px;z-index:20;max-width:calc(100% - 32px)}
+.letrero-act{position:fixed;left:16px;right:16px;top:calc(60px + env(safe-area-inset-top));z-index:21;background:var(--card);border:1px solid var(--brand);border-radius:14px;padding:12px;display:flex;gap:10px;align-items:center;box-shadow:0 6px 20px rgba(0,0,0,.18)}
+.letrero-act span{flex:1;font-size:14px}
+</style>
+</head>
+<body>
+<header>
+  <h1 id="titulo">Bitácora MM103</h1>
+  <span id="estadoRed" class="estado-red">En línea</span>
+</header>
+
+<div id="letreroAct" class="letrero-act oculto"><span>Hay una versión nueva de la app.</span><button class="btn chico" id="btnActualizar">Actualizar</button></div>
+
+<main>
+  <!-- LOGIN -->
+  <section id="vLogin" class="login oculto">
+    <img class="logo" src="icon-192.png" alt="">
+    <h2 style="text-align:center;margin:0 0 4px">Bitácora de Mantenimiento</h2>
+    <p class="muted" style="text-align:center;margin:0 0 10px">Condominio Maestro Meridiano 103</p>
+    <div id="avisoLogin"></div>
+    <label for="lgUsuario">Usuario</label>
+    <input id="lgUsuario" type="text" autocomplete="username" autocapitalize="none" spellcheck="false">
+    <label for="lgPass">Contraseña</label>
+    <input id="lgPass" type="password" autocomplete="current-password">
+    <label style="display:flex;gap:8px;align-items:center;margin-top:8px"><input type="checkbox" id="lgVer"> Mostrar contraseña</label>
+    <button class="btn" id="btnEntrar" style="width:100%;margin-top:16px">Entrar</button>
+    <p class="muted" style="margin-top:14px">Es el mismo usuario y contraseña de la app normal. La primera vez necesitas internet; después la tableta guarda el trabajo del día para consultarlo sin señal.</p>
+  </section>
+
+  <!-- APP -->
+  <section id="vApp" class="oculto">
+    <div class="barra-sync">
+      <span id="txtSync">Sin datos todavía</span><span class="fill"></span>
+      <button class="btn chico sec" id="btnSync">↻ Actualizar</button>
+    </div>
+    <div id="avisoGeneral"></div>
+    <div id="pHoy"></div>
+    <div id="pEquipos" class="oculto"></div>
+    <div id="pTickets" class="oculto"></div>
+    <div id="pAlmacen" class="oculto">
+      <div class="buscador">
+        <input id="almBuscar" type="search" placeholder="Buscar material, categoría o ubicación" autocomplete="off">
+        <button id="almLimpiar" aria-label="Limpiar" class="oculto">✕</button>
+      </div>
+      <div id="almLista"></div>
+    </div>
+    <div id="pMas" class="oculto"></div>
+  </section>
+</main>
+
+<nav class="inferior oculto" id="nav">
+  <button data-p="pHoy" class="activo"><span class="ic">📋</span>Hoy</button>
+  <button data-p="pEquipos"><span class="ic">⚙️</span>Equipos</button>
+  <button data-p="pTickets"><span class="ic">🎫</span>Tickets</button>
+  <button data-p="pAlmacen"><span class="ic">📦</span>Almacén</button>
+  <button data-p="pMas"><span class="ic">☰</span>Más</button>
+</nav>
+
+<script>
+'use strict';
+var APP_VERSION = '0.1.0';
+var API_URL = 'https://script.google.com/macros/s/AKfycbxzVSB0hEQgd9TW01NhmVffLJyioYIg0cRhdRcLxAbYOcT8hCvG-8yA2vi6bA8g936cRw/exec';
+var APP_NORMAL_URL = API_URL;
+
+// ---------- Almacenamiento local (IndexedDB, respaldo localStorage) ----------
+var DB = null, MEMO = {};
+function abrirDB() {
+  return new Promise(function (res) {
+    if (!('indexedDB' in window)) return res(null);
+    var rq;
+    try { rq = indexedDB.open('bitacora_mm103', 1); } catch (e) { return res(null); }
+    rq.onupgradeneeded = function () { var d = rq.result; if (!d.objectStoreNames.contains('meta')) d.createObjectStore('meta'); };
+    rq.onsuccess = function () { var d = rq.result; d.onversionchange = function () { d.close(); }; res(d); };
+    rq.onerror = function () { res(null); };
+    rq.onblocked = function () { toast('Cierra otras pestañas de la app para continuar.'); };
+  });
+}
+function leer(clave) {
+  return new Promise(function (res) {
+    if (!DB) { try { var v = localStorage.getItem('mm103_' + clave); return res(v ? JSON.parse(v) : null); } catch (e) { return res(MEMO[clave] || null); } }
+    var rq = DB.transaction('meta').objectStore('meta').get(clave);
+    rq.onsuccess = function () { res(rq.result === undefined ? null : rq.result); };
+    rq.onerror = function () { res(null); };
+  });
+}
+function guardar(clave, valor) {
+  MEMO[clave] = valor;
+  return new Promise(function (res) {
+    if (!DB) { try { localStorage.setItem('mm103_' + clave, JSON.stringify(valor)); } catch (e) {} return res(); }
+    var tx = DB.transaction('meta', 'readwrite');
+    if (valor === null) tx.objectStore('meta').delete(clave); else tx.objectStore('meta').put(valor, clave);
+    tx.oncomplete = function () { res(); }; tx.onerror = function () { res(); };
+  });
+}
+
+// ---------- Utilidades ----------
+function $(id) { return document.getElementById(id); }
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+var _tt;
+function toast(msg) {
+  var t = document.querySelector('.toast'); if (t) t.remove();
+  t = document.createElement('div'); t.className = 'toast'; t.textContent = msg; document.body.appendChild(t);
+  clearTimeout(_tt); _tt = setTimeout(function () { t.remove(); }, 3200);
+}
+function hace(iso) {
+  if (!iso) return '';
+  var s = Math.round((Date.now() - new Date(iso).getTime()) / 1000);
+  if (s < 60) return 'hace un momento';
+  if (s < 3600) return 'hace ' + Math.round(s / 60) + ' min';
+  if (s < 86400) return 'hace ' + Math.round(s / 3600) + ' h';
+  return new Date(iso).toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' });
+}
+function horaCorta(v) {
+  if (!v) return '';
+  var d = new Date(v); if (isNaN(d)) return String(v);
+  return d.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
+}
+// Normaliza quitando acentos y conservando la misma longitud (para resaltar)
+function norm(s) {
+  s = String(s == null ? '' : s).toLowerCase(); var o = '';
+  for (var i = 0; i < s.length; i++) { var c = s[i], d = c.normalize ? c.normalize('NFD').replace(/[̀-ͯ]/g, '') : c; o += d.length === 1 ? d : c; }
+  return o;
+}
+function dispositivo() { var u = navigator.userAgent; var m = u.match(/\(([^)]+)\)/); return (m ? m[1] : u).slice(0, 110); }
+
+// ---------- API ----------
+function api(cuerpo, ms) {
+  var ctrl = ('AbortController' in window) ? new AbortController() : null;
+  var tm = ctrl ? setTimeout(function () { ctrl.abort(); }, ms || 45000) : null;
+  return fetch(API_URL, {
+    method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify(cuerpo), credentials: 'omit', redirect: 'follow', signal: ctrl ? ctrl.signal : undefined
+  }).then(function (r) { S.sinRed = false; pintarRed(); return r.text(); }).then(function (t) {
+    if (tm) clearTimeout(tm);
+    try { return JSON.parse(t); } catch (e) { throw new Error('Respuesta inesperada del servidor.'); }
+  }, function (e) { if (tm) clearTimeout(tm); S.sinRed = true; pintarRed(); throw new Error('Sin conexión con el servidor.'); });
+}
+
+// ---------- Estado ----------
+var S = { sesion: null, snap: null, panel: 'pHoy', sincronizando: false, sinRed: false };
+
+function pintarRed() {
+  var on = navigator.onLine && !S.sinRed;
+  $('estadoRed').textContent = on ? 'En línea' : 'Sin conexión';
+  $('estadoRed').classList.toggle('off', !on);
+}
+function pintarSync(msg) {
+  var t = S.snap ? 'Datos ' + hace(S.snap.recibido) : 'Sin datos todavía';
+  if (S.sincronizando) t = 'Actualizando…';
+  if (msg) t = msg;
+  $('txtSync').textContent = t;
+  $('btnSync').disabled = S.sincronizando;
+}
+
+function sincronizar(silencioso) {
+  if (!S.sesion || S.sincronizando) return Promise.resolve();
+  if (!navigator.onLine) { if (!silencioso) toast('Sin conexión: se muestran los últimos datos guardados.'); return Promise.resolve(); }
+  S.sincronizando = true; pintarSync();
+  return api({ accion: 'snapshot', token: S.sesion.token }).then(function (r) {
+    S.sincronizando = false;
+    if (!r.ok) {
+      if (r.sesion_invalida) { pintarSync(); return cerrarSesionLocal('Tu sesión expiró. Vuelve a entrar.'); }
+      pintarSync(); if (!silencioso) toast(r.mensaje || 'No se pudo actualizar.'); return;
+    }
+    r.recibido = new Date().toISOString();
+    S.snap = r; S.sesion.usuario = r.usuario || S.sesion.usuario;
+    return Promise.all([guardar('snap', r), guardar('sesion', S.sesion)]).then(function () {
+      pintarTodo(); if (!silencioso) toast('Datos actualizados.');
+    });
+  }).catch(function (e) {
+    S.sincronizando = false; pintarSync(); if (!silencioso) toast(e.message);
+  });
+}
+
+// ---------- Login ----------
+function mostrarLogin(msg) {
+  $('vApp').classList.add('oculto'); $('nav').classList.add('oculto'); $('vLogin').classList.remove('oculto');
+  $('avisoLogin').innerHTML = msg ? '<div class="aviso error">' + esc(msg) + '</div>' : '';
+  $('titulo').textContent = 'Bitácora MM103';
+}
+function entrar() {
+  var u = $('lgUsuario').value.trim(), p = $('lgPass').value;
+  if (!u || !p) return mostrarLogin('Escribe tu usuario y tu contraseña.');
+  if (!navigator.onLine) return mostrarLogin('Para entrar la primera vez necesitas internet.');
+  $('btnEntrar').disabled = true; $('btnEntrar').textContent = 'Entrando…';
+  api({ accion: 'login', usuario: u, password: p, dispositivo: dispositivo() }).then(function (r) {
+    $('btnEntrar').disabled = false; $('btnEntrar').textContent = 'Entrar';
+    if (!r.ok) return mostrarLogin(r.mensaje || 'No se pudo entrar.');
+    $('lgPass').value = '';
+    S.sesion = { token: r.token, expira: r.expira, usuario: r.usuario };
+    guardar('sesion', S.sesion).then(function () { mostrarApp(); sincronizar(); });
+  }).catch(function (e) {
+    $('btnEntrar').disabled = false; $('btnEntrar').textContent = 'Entrar'; mostrarLogin(e.message);
+  });
+}
+function cerrarSesionLocal(msg) {
+  var tk = S.sesion && S.sesion.token;
+  S.sesion = null; S.snap = null;
+  if (tk && navigator.onLine) api({ accion: 'cerrarSesion', token: tk }).catch(function () {});
+  return Promise.all([guardar('sesion', null), guardar('snap', null)]).then(function () { mostrarLogin(msg); });
+}
+
+// ---------- Pintado ----------
+function mostrarApp() {
+  $('vLogin').classList.add('oculto'); $('vApp').classList.remove('oculto'); $('nav').classList.remove('oculto');
+  pintarTodo();
+}
+function irA(p) {
+  S.panel = p;
+  ['pHoy', 'pEquipos', 'pTickets', 'pAlmacen', 'pMas'].forEach(function (id) { $(id).classList.toggle('oculto', id !== p); });
+  [].forEach.call(document.querySelectorAll('nav.inferior button'), function (b) { b.classList.toggle('activo', b.dataset.p === p); });
+  window.scrollTo(0, 0);
+}
+function D(k) { return (S.snap && S.snap.datos && S.snap.datos[k]) || null; }
+function pintarTodo() {
+  var u = S.sesion && S.sesion.usuario;
+  $('titulo').textContent = u ? (u.nombre_completo || u.usuario || 'Bitácora MM103').split(' ')[0] + ' · Bitácora' : 'Bitácora MM103';
+  var av = '';
+  if (S.snap && S.snap.hoy) {
+    var hoyLocal = new Date(); var h = hoyLocal.getFullYear() + '-' + String(hoyLocal.getMonth() + 1).padStart(2, '0') + '-' + String(hoyLocal.getDate()).padStart(2, '0');
+    if (S.snap.hoy !== h) av += '<div class="aviso warn">Estos datos son del ' + esc(S.snap.hoy) + '. Actualiza con internet para bajar el plan de hoy.</div>';
+  }
+  av += '<div class="aviso">Versión de prueba (Fase 1): solo consulta. Para registrar trabajos sigue usando la app normal.</div>';
+  $('avisoGeneral').innerHTML = av;
+  pintarSync(); pintarHoy(); pintarEquipos(); pintarTickets(); pintarAlmacen(); pintarMas();
+}
+
+function chipEstado(e) {
+  var m = { 'Completada': 'ok', 'Completado': 'ok', 'Atendido': 'ok', 'En proceso': 'info', 'Pausado': 'warn', 'Saltada': 'bad', 'Cancelado': 'bad', 'Abierto': 'warn', 'Pendiente': '' };
+  return '<span class="chip ' + (m[e] || '') + '">' + esc(e || '—') + '</span>';
+}
+function nombreMaterial(id) {
+  var a = D('almacen') || []; for (var i = 0; i < a.length; i++) if (a[i].material_id === id) return a[i].nombre;
+  return id;
+}
+function pintarHoy() {
+  var cola = D('cola'), el = $('pHoy');
+  if (!S.snap) { el.innerHTML = '<div class="vacio">Toca “Actualizar” con internet para bajar el trabajo del día.</div>'; return; }
+  if (!cola) { el.innerHTML = '<div class="aviso error">' + esc((S.snap.errores || {}).cola || 'Sin cola de trabajo.') + '</div>'; return; }
+  var miId = S.sesion.usuario && S.sesion.usuario.id_usuario;
+  var pasos = D('pasos') || [], mats = D('materiales_tarea') || [];
+  var pend = cola.filter(function (f) { return f.estado !== 'Completada' && f.estado !== 'Saltada'; });
+  var hechas = cola.length - pend.length;
+  var html = '<div class="grupo">Cola de hoy · ' + hechas + ' de ' + cola.length + ' terminadas</div>';
+  if (!cola.length) html += '<div class="vacio">No hay trabajos en la cola de hoy.</div>';
+  cola.slice().sort(function (a, b) { return (Number(a.orden_cola) || 0) - (Number(b.orden_cola) || 0); }).forEach(function (f, i) {
+    var mia = f.usuario_asignado_actual && f.usuario_asignado_actual === miId;
+    var ps = pasos.filter(function (p) { return p.tarea_id && p.tarea_id === f.tarea_id; }).sort(function (a, b) { return (Number(a.orden_paso) || 0) - (Number(b.orden_paso) || 0); });
+    var ms = mats.filter(function (m) { return m.tarea_id && m.tarea_id === f.tarea_id; });
+    var extra = '';
+    if (f.tipo_origen && f.tipo_origen !== 'Catalogo' && f.tipo_origen !== 'Catálogo') extra += '<span class="chip info">' + esc(f.tipo_origen) + '</span>';
+    if (f.prioridad === 'Alta') extra += '<span class="chip bad">Urgente</span>';
+    if (f.bloqueo_estricto) extra += '<span class="chip warn">No se puede saltar</span>';
+    var det = '';
+    if (ps.length || ms.length) {
+      det = '<details><summary>Pasos y materiales</summary>' +
+        (ps.length ? '<ol class="pasos">' + ps.map(function (p) { return '<li>' + esc(p.nombre_paso) + (p.descripcion ? ' <span class="muted">— ' + esc(p.descripcion) + '</span>' : '') + '</li>'; }).join('') + '</ol>' : '') +
+        (ms.length ? '<p class="muted" style="margin:8px 0 0">Material: ' + ms.map(function (m) { return esc(nombreMaterial(m.material_id)) + ' (' + esc(m.cantidad_predeterminada) + ' ' + esc(m.unidad || '') + ')'; }).join(', ') + '</p>' : '') +
+        '</details>';
+    }
+    var quien = f.usuario_asignado_nombre || f.nombre_usuario_asignado || '';
+    var tiempos = f.hora_inicio ? 'Inició ' + horaCorta(f.hora_inicio) + (f.hora_fin ? ' · terminó ' + horaCorta(f.hora_fin) : '') : '';
+    html += '<div class="card' + (mia ? ' mia' : '') + '"><div class="fila"><span class="num">' + (i + 1) + '</span><h3 style="flex:1">' + esc(f.nombre_tarea || f.tarea_id || 'Trabajo') + '</h3>' + chipEstado(f.estado) + '</div>' +
+      '<div class="fila" style="margin-top:6px">' + extra + (mia ? '<span class="chip">Tuyo</span>' : '') + (quien ? '<span class="muted">' + esc(quien) + '</span>' : '') + (f.area_o_equipo_asociado ? '<span class="muted">· ' + esc(f.area_o_equipo_asociado) + '</span>' : '') + '</div>' +
+      (tiempos ? '<div class="muted" style="margin-top:4px">' + tiempos + '</div>' : '') +
+      (f.motivo_pausa ? '<div class="muted" style="margin-top:4px">Pausa: ' + esc(f.motivo_pausa) + '</div>' : '') +
+      det + '</div>';
+  });
+  var prox = D('proximas');
+  if (prox && prox.length) {
+    html += '<div class="grupo">Próximas revisiones programadas</div>';
+    html += prox.slice(0, 15).map(function (p) { return '<div class="card"><h3>' + esc(p.nombre_tarea || p.nombre || p.tarea_id) + '</h3><div class="muted">' + esc(p.fecha || p.proxima_fecha || '') + '</div></div>'; }).join('');
+  }
+  el.innerHTML = html;
+}
+function pintarEquipos() {
+  var ch = D('checklist'), el = $('pEquipos');
+  if (!S.snap) { el.innerHTML = ''; return; }
+  if (!ch) { el.innerHTML = '<div class="aviso error">' + esc((S.snap.errores || {}).checklist || 'Sin checklist.') + '</div>'; return; }
+  var faltan = ch.filter(function (e) { return !e.completado_hoy; }).length;
+  el.innerHTML = '<div class="grupo">Checklist de equipos · ' + (ch.length - faltan) + ' de ' + ch.length + ' con lectura hoy</div>' +
+    (ch.length ? ch.map(function (e) {
+      return '<div class="card"><div class="fila"><h3 style="flex:1">' + esc(e.nombre || e.equipo_id) + '</h3>' + (e.completado_hoy ? '<span class="chip ok">Lectura hecha</span>' : '<span class="chip warn">Pendiente</span>') + '</div>' +
+        '<div class="muted">' + esc(e.frecuencia_revision || '') + '</div></div>';
+    }).join('') : '<div class="vacio">No hay equipos que revisar hoy.</div>');
+}
+function pintarTickets() {
+  var tk = D('tickets'), el = $('pTickets');
+  if (!S.snap) { el.innerHTML = ''; return; }
+  if (!tk) { el.innerHTML = '<div class="aviso error">' + esc((S.snap.errores || {}).tickets || 'Sin tickets.') + '</div>'; return; }
+  var abiertos = tk.filter(function (t) { return t.estado === 'Abierto'; });
+  var otros = tk.filter(function (t) { return t.estado !== 'Abierto'; }).slice(0, 20);
+  function card(t) {
+    return '<div class="card"><div class="fila"><h3 style="flex:1">' + esc(t.ticket_id) + '</h3>' + (t.prioridad === 'Alta' ? '<span class="chip bad">Urgente</span>' : '') + chipEstado(t.estado) + '</div>' +
+      '<p style="margin:6px 0">' + esc(t.mensaje) + '</p>' +
+      '<div class="muted">De ' + esc(t.creado_por_nombre || '') + (t.dirigido_a_nombre ? ' para ' + esc(t.dirigido_a_nombre) : '') + ' · ' + esc(t.fecha_hora_creacion || '') + '</div></div>';
+  }
+  el.innerHTML = '<div class="grupo">Abiertos (' + abiertos.length + ')</div>' + (abiertos.length ? abiertos.map(card).join('') : '<div class="vacio">Sin tickets abiertos.</div>') +
+    (otros.length ? '<div class="grupo">Recientes</div>' + otros.map(card).join('') : '');
+}
+var almTimer;
+function pintarAlmacen() {
+  var a = D('almacen'), el = $('almLista');
+  if (!S.snap) { el.innerHTML = ''; return; }
+  if (!a) { el.innerHTML = '<div class="aviso error">' + esc((S.snap.errores || {}).almacen || 'Sin almacén.') + '</div>'; return; }
+  var q = norm($('almBuscar').value.trim());
+  $('almLimpiar').classList.toggle('oculto', !q);
+  var lista = a.filter(function (m) {
+    if (!q) return true;
+    return norm([m.nombre, m.categoria, m.ubicacion, m.material_id].join(' ')).indexOf(q) !== -1;
+  });
+  function marca(txt) {
+    txt = String(txt || ''); if (!q) return esc(txt);
+    var i = norm(txt).indexOf(q); if (i < 0) return esc(txt);
+    return esc(txt.slice(0, i)) + '<mark>' + esc(txt.slice(i, i + q.length)) + '</mark>' + esc(txt.slice(i + q.length));
+  }
+  var grupos = {};
+  lista.forEach(function (m) { var c = (m.categoria || 'Sin categoría').trim(); (grupos[c] = grupos[c] || []).push(m); });
+  var html = '<div class="muted" style="margin:0 0 6px">' + lista.length + ' de ' + a.length + ' materiales</div>';
+  Object.keys(grupos).sort().forEach(function (c) {
+    html += '<div class="grupo">' + esc(c) + '</div>';
+    html += grupos[c].sort(function (x, y) { return String(x.nombre).localeCompare(String(y.nombre), 'es'); }).map(function (m) {
+      var st = Number(m.stock_actual), mn = Number(m.stock_minimo);
+      var chip = (m.stock_actual === '' || isNaN(st)) ? '' : (st <= 0 ? '<span class="chip bad">Agotado</span>' : (mn && st <= mn ? '<span class="chip warn">Por agotarse</span>' : '<span class="chip ok">OK</span>'));
+      return '<div class="card"><div class="fila"><h3 style="flex:1">' + marca(m.nombre) + '</h3>' + chip + '</div>' +
+        '<div class="muted">' + esc(m.stock_actual) + ' ' + esc(m.unidad_medida || '') + (m.ubicacion ? ' · ' + marca(m.ubicacion) : '') + (m.tipo ? ' · ' + esc(m.tipo) : '') + '</div></div>';
+    }).join('');
+  });
+  if (!lista.length) html += '<div class="vacio">Nada coincide con la búsqueda.</div>';
+  el.innerHTML = html;
+}
+function pintarMas() {
+  var u = (S.sesion && S.sesion.usuario) || {};
+  $('pMas').innerHTML =
+    '<div class="card"><h3>' + esc(u.nombre_completo || u.usuario || '') + '</h3><div class="muted">' + esc(u.rol || '') + ' · usuario ' + esc(u.usuario || '') + '</div></div>' +
+    '<div class="card"><h3>Datos guardados en esta tableta</h3><p class="muted" style="margin:4px 0 10px">' + (S.snap ? 'Última actualización: ' + esc(new Date(S.snap.recibido).toLocaleString('es-MX')) : 'Todavía no hay datos.') + '</p>' +
+    '<button class="btn sec" id="btnExportar" style="width:100%"' + (S.snap ? '' : ' disabled') + '>⬇ Descargar copia (JSON)</button></div>' +
+    '<div class="card"><h3>App normal</h3><p class="muted" style="margin:4px 0 10px">Para registrar trabajos, lecturas y material mientras termina la Fase 2.</p><a class="btn" style="display:block;text-align:center;text-decoration:none" href="' + esc(APP_NORMAL_URL) + '" target="_blank" rel="noopener">Abrir app normal</a></div>' +
+    '<div class="card" id="cardInstalar" style="display:none"><h3>Instalar en la tableta</h3><p class="muted" id="txtInstalar" style="margin:4px 0 10px"></p><button class="btn" id="btnInstalar" style="width:100%">Instalar</button></div>' +
+    '<button class="btn sec" id="btnSalir" style="width:100%;margin-top:6px">Cerrar sesión</button>' +
+    '<p class="muted" style="text-align:center;margin-top:16px">Bitácora offline v' + APP_VERSION + (S.snap ? ' · servidor ' + esc(S.snap.version) : '') + '</p>';
+  $('btnSalir').onclick = function () { if (confirm('¿Cerrar sesión en esta tableta? Se borran los datos guardados.')) cerrarSesionLocal(); };
+  $('btnExportar').onclick = exportar;
+  pintarInstalar();
+}
+function exportar() {
+  var datos = { app: 'Bitácora MM103 offline', version: APP_VERSION, exportado: new Date().toISOString(), usuario: S.sesion && S.sesion.usuario, snapshot: S.snap };
+  var blob = new Blob([JSON.stringify(datos, null, 2)], { type: 'application/json' });
+  var a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = 'bitacora_mm103_' + new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-') + '.json';
+  document.body.appendChild(a); a.click(); setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+}
+
+// ---------- Instalación PWA ----------
+var promptInstalar = null;
+window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); promptInstalar = e; pintarInstalar(); });
+function pintarInstalar() {
+  var card = $('cardInstalar'); if (!card) return;
+  var standalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+  var ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  if (standalone) { card.style.display = 'none'; return; }
+  if (promptInstalar) {
+    card.style.display = ''; $('txtInstalar').textContent = 'Agrega la Bitácora a la pantalla de inicio para abrirla sin internet.';
+    $('btnInstalar').style.display = ''; $('btnInstalar').onclick = function () { promptInstalar.prompt(); promptInstalar = null; card.style.display = 'none'; };
+  } else if (ios) {
+    card.style.display = ''; $('txtInstalar').textContent = 'En Safari: botón Compartir → “Agregar a inicio”.'; $('btnInstalar').style.display = 'none';
+  }
+}
+
+// ---------- Service worker y aviso de actualización ----------
+var quiereRecargar = false;
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').then(function (reg) {
+    function avisar(w) {
+      $('letreroAct').classList.remove('oculto');
+      $('btnActualizar').onclick = function () { quiereRecargar = true; w.postMessage('skipWaiting'); setTimeout(function () { location.reload(); }, 2500); };
+    }
+    if (reg.waiting && navigator.serviceWorker.controller) avisar(reg.waiting);
+    reg.addEventListener('updatefound', function () {
+      var w = reg.installing; if (!w) return;
+      w.addEventListener('statechange', function () { if (w.state === 'installed' && navigator.serviceWorker.controller) avisar(w); });
+    });
+    setInterval(function () { reg.update().catch(function () {}); }, 30 * 60 * 1000);
+  }).catch(function () {});
+  navigator.serviceWorker.addEventListener('controllerchange', function () { if (quiereRecargar) location.reload(); });
+}
+
+// ---------- Eventos ----------
+$('btnEntrar').onclick = entrar;
+$('lgPass').addEventListener('keydown', function (e) { if (e.key === 'Enter') entrar(); });
+$('lgVer').onchange = function () { $('lgPass').type = this.checked ? 'text' : 'password'; };
+$('btnSync').onclick = function () { sincronizar(false); };
+[].forEach.call(document.querySelectorAll('nav.inferior button'), function (b) { b.onclick = function () { irA(b.dataset.p); }; });
+$('almBuscar').addEventListener('input', function () { clearTimeout(almTimer); almTimer = setTimeout(pintarAlmacen, 80); });
+$('almLimpiar').onclick = function () { $('almBuscar').value = ''; pintarAlmacen(); $('almBuscar').focus(); };
+window.addEventListener('online', function () { pintarRed(); sincronizar(true); });
+window.addEventListener('offline', pintarRed);
+document.addEventListener('visibilitychange', function () {
+  if (document.visibilityState === 'visible' && S.snap && Date.now() - new Date(S.snap.recibido).getTime() > 5 * 60000) sincronizar(true);
+});
+setInterval(function () { pintarSync(); }, 60000);
+
+// ---------- Arranque ----------
+abrirDB().then(function (d) {
+  DB = d;
+  if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(function () {});
+  return Promise.all([leer('sesion'), leer('snap')]);
+}).then(function (r) {
+  pintarRed();
+  S.sesion = r[0]; S.snap = r[1];
+  if (!S.sesion) return mostrarLogin();
+  mostrarApp();
+  sincronizar(true);
+});
+</script>
+</body>
+</html>
