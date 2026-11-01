@@ -14,7 +14,7 @@
   if (window.__MM103_PUENTE) return;
   window.__MM103_PUENTE = true;
 
-  var VERSION = '0.4.0';
+  var VERSION = '0.5.0';
   var API_URL = 'https://script.google.com/macros/s/AKfycbxzVSB0hEQgd9TW01NhmVffLJyioYIg0cRhdRcLxAbYOcT8hCvG-8yA2vi6bA8g936cRw/exec';
 
   var SIN_TOKEN = { login: 1, solicitarCodigoAcceso: 1, crearCredenciales: 1, restablecerPassword: 1, obtenerPermisos: 1 };
@@ -33,7 +33,9 @@
     // Administración (v0.4): responden al instante y se suben por detrás.
     crearTicket: 1, editarTicket: 1, cancelarTicket: 1, reabrirTrabajoCompletado: 1, moverTareaEnCola: 1, moverTicketEnCola: 1,
     actualizarPermiso: 1, cambiarEstadoTrabajoExtra: 1, cambiarActivoTarea: 1, cambiarEstadoUsuario: 1, editarUsuario: 1,
-    guardarTrabajoExtra: 1, guardarTarea: 1, guardarMaterialAlmacen: 1
+    guardarTrabajoExtra: 1, guardarTarea: 1, guardarMaterialAlmacen: 1,
+    // Lecturas de medidores (v0.5)
+    registrarLecturaMedidor: 1
   };
   // Se intentan en línea; si no hay señal, se guardan para subirlos después.
   var RED_PRIMERO_CON_RESPALDO = { saltarTareaConCodigo: 1, ajustarExistenciaMaterial: 1, reanudarTareaPausada: 1 };
@@ -193,6 +195,7 @@
   function ordenar(c) { return c.slice().sort(function (a, b) { return (Number(a.orden_cola) || 0) - (Number(b.orden_cola) || 0); }); }
 
   var OPTIMISTA = {
+    registrarLecturaMedidor: function () { return { r: { ok: true, local: true } }; },
     tomarTarea: function (a) {
       var c = colaLocal(); var me = yo(); if (!c || !me) return null;
       var regId = a[1], motivo = a[2];
@@ -781,10 +784,24 @@
       });
     });
   }
+  // Mosaico "Lecturas de medidores" en el menú principal (módulo lecturas.js, se carga al abrirlo)
+  function mosaicoLecturas() {
+    var menu = document.querySelector('.cuadricula-menu');
+    if (!menu || menu.querySelector('.mm-lecturas') || !window.TOKEN) return;
+    var b = document.createElement('button'); b.type = 'button'; b.className = 'boton-menu mm-lecturas';
+    b.innerHTML = '<span class="boton-menu-icono">📟</span><span>Lecturas de medidores</span>';
+    b.onclick = function () {
+      var abrir = function () { window.MM103Lecturas.abrir(); };
+      if (window.MM103Lecturas) return abrir();
+      var s = document.createElement('script'); s.src = new URL('lecturas.js', location.href).href; s.onload = abrir;
+      s.onerror = function () { aviso('No se pudo abrir el módulo de lecturas.'); }; document.head.appendChild(s);
+    };
+    menu.appendChild(b);
+  }
   var mejoraPendiente = false;
   function programarMejoras() {
     if (mejoraPendiente) return; mejoraPendiente = true;
-    requestAnimationFrame(function () { mejoraPendiente = false; try { mejorarFotos(); mejorarTablas(); } catch (e) { console.warn(e); } });
+    requestAnimationFrame(function () { mejoraPendiente = false; try { mejorarFotos(); mejorarTablas(); mosaicoLecturas(); } catch (e) { console.warn(e); } });
   }
   function iniciarMejoras() {
     programarMejoras();
