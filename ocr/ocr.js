@@ -404,7 +404,7 @@
     }).catch(function (e) { modeloCargando = null; console.warn('modelo', e); return false; });
     return modeloCargando;
   }
-  function lienzoDe(img) { var c = lienzo(img.width, img.height); c.getContext('2d').putImageData(img, 0, 0); return c; }
+  function lienzoDe(img) { var c = lienzo(img.width, img.height); c.getContext('2d', { willReadFrequently: true }).putImageData(img, 0, 0); return c; }   // en memoria (CPU): evita copiar de la GPU en cada celda
   // Periodo dominante de las columnas (separación entre rodillos), por autocorrelación de bordes.
   function periodos(F) {
     var G = F.gris, w = G.w, h = G.h, col = new Float64Array(w), y0 = Math.round(h * 0.2), y1 = Math.round(h * 0.8);
@@ -454,7 +454,7 @@
       for (var i = 1; i < cx.length; i++) gaps.push(cx[i] - cx[i - 1]);
       gaps.sort(function (a, b) { return a - b; }); pasos.push(gaps[gaps.length >> 1]);
     }
-    for (var f = 0.62; f <= 1.75; f *= 1.07) pasos.push(hm * f);              // barrido geométrico de pasos
+    for (var f = 0.62; f <= 1.75; f *= 1.09) pasos.push(hm * f);              // barrido geométrico de pasos
     pasos = pasos.filter(function (p) { return p >= hm * 0.6 && p <= hm * 2.2; });
     if (F.rojoX != null && F.rojoFin != null && F.rojoFin - F.rojoX > hm) pasos.push((F.rojoFin - F.rojoX) / (o.rodillosRojos || 3));
     if (F.rojoX != null) { var ni = inicioNegro(F); if (ni != null) [4, 5, 6].forEach(function (k) { var q = (F.rojoX - ni) / k; if (q >= hm * 0.6 && q <= hm * 2.2) pasos.push(q); }); }
@@ -462,7 +462,7 @@
     pasos.forEach(function (paso) {
       var fases = [];
       if (F.rojoX != null) { var f0 = ((F.rojoX + paso / 2) % paso + paso) % paso; fases.push(f0, f0 - paso * 0.08, f0 + paso * 0.08); }
-      else for (var k = 0; k < 6; k++) fases.push(paso * k / 6);
+      else for (var k = 0; k < 5; k++) fases.push(paso * k / 5);
       fases.forEach(function (fase) {
         var lista = clasificarRejilla(F, paso, fase, alto, cy, tinta); if (lista.length < Math.min(3, N)) return;
         var q;
