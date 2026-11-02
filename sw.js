@@ -1,5 +1,5 @@
 // Service worker — Bitácora MM103 offline
-var VERSION = '0.5.1';
+var VERSION = '0.6.0';
 var CACHE = 'bitacora-mm103-' + VERSION;
 var SHELL = ['./', 'index.html', 'puente.js', 'piel.css', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'icon-maskable-512.png', 'apple-touch-icon.png', 'favicon-32.png',
   'lecturas.js', 'medidores.json', 'ocr/ocr.js', 'ocr/digitos.js', 'ocr/modelo_digitos.json'];
