@@ -14,7 +14,7 @@
   if (window.__MM103_PUENTE) return;
   window.__MM103_PUENTE = true;
 
-  var VERSION = '0.5.0';
+  var VERSION = '0.6.0';
   var API_URL = 'https://script.google.com/macros/s/AKfycbxzVSB0hEQgd9TW01NhmVffLJyioYIg0cRhdRcLxAbYOcT8hCvG-8yA2vi6bA8g936cRw/exec';
 
   var SIN_TOKEN = { login: 1, solicitarCodigoAcceso: 1, crearCredenciales: 1, restablecerPassword: 1, obtenerPermisos: 1 };
@@ -35,7 +35,9 @@
     actualizarPermiso: 1, cambiarEstadoTrabajoExtra: 1, cambiarActivoTarea: 1, cambiarEstadoUsuario: 1, editarUsuario: 1,
     guardarTrabajoExtra: 1, guardarTarea: 1, guardarMaterialAlmacen: 1,
     // Lecturas de medidores (v0.5)
-    registrarLecturaMedidor: 1
+    registrarLecturaMedidor: 1,
+    // Control de gas (v0.6): foto y confirmación por departamento, en orden
+    registrarAccionGas: 1
   };
   // Se intentan en línea; si no hay señal, se guardan para subirlos después.
   var RED_PRIMERO_CON_RESPALDO = { saltarTareaConCodigo: 1, ajustarExistenciaMaterial: 1, reanudarTareaPausada: 1 };
@@ -141,7 +143,19 @@
     while (a.length && (a[a.length - 1] === null || a[a.length - 1] === undefined || a[a.length - 1] === '')) a.pop();
     return fn + '|' + JSON.stringify(a);
   }
-  function guardarCache(clave, valor) { CACHE[clave] = { v: valor, t: Date.now() }; poner('cache', clave, CACHE[clave]); }
+  function guardarCache(clave, valor) { CACHE[clave] = { v: valor, t: Date.now() }; poner('cache', clave, CACHE[clave]); if (clave === 'listarColaDelDia|[]') precargarTareasGas(valor); }
+  // La lista de departamentos de la tarea de gas se descarga con la cola, para poder trabajarla sin internet.
+  function precargarTareasGas(cola) {
+    try {
+      if (!navigator.onLine || !cola || !cola.length || typeof TOKEN === 'undefined' || !TOKEN) return;
+      cola.forEach(function (f) {
+        if (!f || !f.es_gas || f.estado === 'Completada') return;
+        var k = 'obtenerTareaGas|' + JSON.stringify([f.registro_id]);
+        if (CACHE[k]) return;
+        llamar('obtenerTareaGas', [TOKEN, f.registro_id]).then(function (x) { if (x.resultado && x.resultado.items) guardarCache(k, x.resultado); }, function () {});
+      });
+    } catch (e) { /* la descarga anticipada nunca debe romper la cola */ }
+  }
   function leerCache(clave) { return CACHE[clave] ? CACHE[clave].v : undefined; }
   function yo() { return META.usuario || null; }
   function guardarMeta(k, v) { META[k] = v; poner('meta', k, v); }
@@ -196,6 +210,21 @@
 
   var OPTIMISTA = {
     registrarLecturaMedidor: function () { return { r: { ok: true, local: true } }; },
+    // Control de gas: marca el departamento como hecho en la copia guardada de la tarea y avanza al siguiente.
+    registrarAccionGas: function (a) {
+      var k = 'obtenerTareaGas|' + JSON.stringify([a[1]]);
+      var t = clon(leerCache(k)); if (!t || !t.items) return null;
+      var it = null; t.items.forEach(function (x) { if (x.clave === a[2]) it = x; });
+      if (!it) return null;
+      if (!it.hecho) {
+        if (t.siguiente !== a[2]) return null;
+        it.hecho = true; t.hechos = (t.hechos || 0) + 1; t.siguiente = null;
+        t.items.forEach(function (x) { if (!t.siguiente && !x.hecho) t.siguiente = x.clave; });
+        guardarCache(k, t);
+      }
+      t.ok = true;
+      return { r: t };
+    },
     tomarTarea: function (a) {
       var c = colaLocal(); var me = yo(); if (!c || !me) return null;
       var regId = a[1], motivo = a[2];
@@ -455,11 +484,11 @@
   function nombreAccion(fn) {
     return ({ tomarTarea: 'Tomar tarea', completarTarea: 'Completar tarea', pausarTareaManual: 'Pausar tarea', devolverTareaACola: 'Regresar a la cola',
       registrarLecturaEquipo: 'Lectura de equipo', registrarConsumoMaterial: 'Consumo de material', registrarSalidaMaterial: 'Salida de material',
-      registrarEntradaMaterial: 'Entrada de material', iniciarComida: 'Iniciar comida', terminarComida: 'Terminar comida', atenderTicket: 'Atender ticket',
+      registrarEntradaMaterial: 'Entrada de material', registrarAccionGas: 'Cierre/apertura de gas', iniciarComida: 'Iniciar comida', terminarComida: 'Terminar comida', atenderTicket: 'Atender ticket',
       crearTicket: 'Crear ticket', saltarTareaConCodigo: 'Saltar tarea', ajustarExistenciaMaterial: 'Ajustar existencia',
       editarTicket: 'Editar ticket', cancelarTicket: 'Cancelar ticket', reabrirTrabajoCompletado: 'Volver a abrir trabajo', moverTareaEnCola: 'Mover en la cola',
-      moverTicketEnCola: 'Mover ticket', actualizarPermiso: 'Cambiar permiso', cambiarEstadoTrabajoExtra: 'Estado de trabajo extra', cambiarActivoTarea: 'Activar/desactivar tarea',
-      cambiarEstadoUsuario: 'Estado de usuario', editarUsuario: 'Editar usuario', guardarTrabajoExtra: 'Editar trabajo extra', guardarTarea: 'Editar tarea', guardarMaterialAlmacen: 'Editar material' })[fn] || fn;
+      moverTicketEnCola: 'Mover ticket', actualizarPermiso: 'Cambiar permiso', cambiarEstadoTrabajoExtra: 'Estado de trabajo programado', cambiarActivoTarea: 'Activar/desactivar tarea',
+      cambiarEstadoUsuario: 'Estado de usuario', editarUsuario: 'Editar usuario', guardarTrabajoExtra: 'Guardar trabajo programado', guardarTarea: 'Editar tarea', guardarMaterialAlmacen: 'Editar material' })[fn] || fn;
   }
   // Tras subir todo, pide al servidor las listas frescas y repinta lo que esté a la vista.
   function refrescarPantalla() {
