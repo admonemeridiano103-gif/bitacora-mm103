@@ -1,0 +1,15 @@
+# Credenciales y configuracion local de clasp (nunca subir)
+.clasp.json
+.clasprc.json
+# Secretos y datos reales
+.env
+*.secret
+*.key
+datos_reales/
+respaldos/
+*.xlsx
+*.csv
+# Sistema
+node_modules/
+.DS_Store
+Thumbs.db

@@ -1,0 +1,409 @@
+<script>
+// MÓDULO js_nucleo — Núcleo: estado global, sesión, acceso, menú y carga de datos por módulo
+
+var ESTADO = { usuarioActual: null, usuarios: [], horarios: [], roles: [], tareas: [], trabajosExtra: [], colaHoy: [], tareaDetalleActual: null, checklistEquipos: [], definicionLecturas: null, almacen: [], tickets: [], destinatariosTicket: [], comida: null };
+
+var TOKEN = null;
+var LLAVE_TOKEN = 'mm103_token';
+
+function guardarToken_(t) {
+  TOKEN = t;
+  try { localStorage.setItem(LLAVE_TOKEN, t); } catch (e) { /* almacenamiento no disponible */ }
+}
+function borrarToken_() {
+  TOKEN = null;
+  try { localStorage.removeItem(LLAVE_TOKEN); } catch (e) { /* almacenamiento no disponible */ }
+}
+function tokenGuardado_() {
+  try { return localStorage.getItem(LLAVE_TOKEN); } catch (e) { return null; }
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+  var t = tokenGuardado_();
+  if (!t) {
+    document.getElementById('cargando').classList.add('oculto');
+    mostrarLogin();
+    return;
+  }
+  TOKEN = t;
+  google.script.run.withSuccessHandler(function (resp) {
+    document.getElementById('cargando').classList.add('oculto');
+    if (!resp.ok) {
+      borrarToken_();
+      mostrarLogin(resp.mensaje);
+      return;
+    }
+    entrarConSesion(resp.usuario);
+  }).withFailureHandler(function (err) {
+    document.getElementById('cargando').classList.add('oculto');
+    mostrarLogin();
+  }).validarSesion(t);
+});
+
+
+function ocultarPantallasAcceso_() {
+  ['pantallaLogin', 'pantallaActivar', 'pantallaRecuperar'].forEach(function (id) {
+    document.getElementById(id).classList.add('oculto');
+  });
+}
+
+function mostrarLogin(mensaje) {
+  ocultarPantallasAcceso_();
+  document.getElementById('panel').classList.add('oculto');
+  document.getElementById('pantallaLogin').classList.remove('oculto');
+  document.getElementById('avisoLogin').innerHTML = mensaje ? '<div class="aviso error">' + escapar_(mensaje) + '</div>' : '';
+}
+
+function mostrarActivar() {
+  ocultarPantallasAcceso_();
+  document.getElementById('activarPaso1').classList.remove('oculto');
+  document.getElementById('activarPaso2').classList.add('oculto');
+  document.getElementById('avisoActivar').innerHTML = '';
+  document.getElementById('pantallaActivar').classList.remove('oculto');
+}
+
+function mostrarRecuperar() {
+  ocultarPantallasAcceso_();
+  document.getElementById('recuperarPaso1').classList.remove('oculto');
+  document.getElementById('recuperarPaso2').classList.add('oculto');
+  document.getElementById('avisoRecuperar').innerHTML = '';
+  document.getElementById('pantallaRecuperar').classList.remove('oculto');
+}
+
+var SECCIONES_PRINCIPALES = ['tarjetaMiCuenta','tarjetaUsuarios','tarjetaPermisos','tarjetaHorarios','tarjetaAuditoria','tarjetaCatalogoTareas','tarjetaTrabajosExtra','tarjetaGasAdmin','tarjetaGasTecnico','tarjetaColaHoy','tarjetaChecklistEquipos','tarjetaAlmacen','tarjetaTickets','tarjetaComida','tarjetaReportes'];
+
+/** Sección abierta en este momento (null = menú principal). Se usa para cargar sus datos solo cuando se abre. */
+var SECCION_ACTUAL = null;
+
+/** Muestra solo la sección indicada (una de SECCIONES_PRINCIPALES) y oculta el menú principal. */
+function mostrarSeccion(idSeccion) {
+  document.getElementById('menuPrincipal').classList.add('oculto');
+  SECCIONES_PRINCIPALES.forEach(function (id) {
+    document.getElementById(id).classList.add('oculto');
+  });
+  document.getElementById(idSeccion).classList.remove('oculto');
+  document.getElementById('botonVolverMenu').classList.remove('oculto');
+  window.scrollTo(0, 0);
+  SECCION_ACTUAL = idSeccion;
+  cargarSeccion_(idSeccion);
+}
+
+/** Regresa a la pantalla de menú principal, ocultando cualquier sección abierta. */
+function mostrarMenuPrincipal() {
+  SECCIONES_PRINCIPALES.forEach(function (id) {
+    document.getElementById(id).classList.add('oculto');
+  });
+  document.getElementById('botonVolverMenu').classList.add('oculto');
+  document.getElementById('menuPrincipal').classList.remove('oculto');
+  window.scrollTo(0, 0);
+  SECCION_ACTUAL = null;
+}
+
+/** Se llama tanto al recuperar una sesión guardada como justo después de iniciar sesión o activar cuenta. */
+function entrarConSesion(usuario) {
+  ocultarPantallasAcceso_();
+  ESTADO.usuarioActual = usuario;
+  document.getElementById('panel').classList.remove('oculto');
+  document.getElementById('saludo').textContent = 'Hola, ' + usuario.nombre_completo;
+  document.getElementById('detalleUsuario').textContent = usuario.correo + ' · @' + (usuario.usuario || '') + ' · código ' + usuario.codigo_personal;
+  document.getElementById('rolActual').textContent = usuario.rol;
+
+  var permisos = usuario.permisos || {};
+
+  // Reinicia todas las secciones condicionadas por permiso a su estado oculto antes de
+  // volver a evaluarlas: evita que queden visibles botones de una sesión anterior (por
+  // ejemplo, si un administrador probó la app en este mismo navegador antes de que un
+  // técnico iniciara sesión).
+  ['tarjetaAltaUsuarios', 'menuBtnUsuarios', 'menuBtnAuditoria', 'menuBtnPermisos', 'menuBtnHorarios',
+  'menuBtnCatalogoTareas', 'menuBtnTrabajosExtra', 'menuBtnGas', 'menuBtnColaHoy', 'menuBtnChecklistEquipos',
+  'menuBtnAlmacen', 'menuBtnTickets', 'menuBtnComida', 'menuBtnReportes'].forEach(function (id) {
+    var el = document.getElementById(id);
+    if (el) el.classList.add('oculto');
+  });
+
+  if (permisos.ALTA_BAJA_USUARIOS) {
+    document.getElementById('tarjetaAltaUsuarios').classList.remove('oculto');
+    document.getElementById('menuBtnUsuarios').classList.remove('oculto');
+    document.getElementById('menuBtnAuditoria').classList.remove('oculto');
+  }
+  if (permisos.EDITAR_PERMISOS_ROLES) document.getElementById('menuBtnPermisos').classList.remove('oculto');
+  if (permisos.CONFIGURAR_HORARIOS || permisos.ALTA_BAJA_USUARIOS) document.getElementById('menuBtnHorarios').classList.remove('oculto');
+  if (permisos.CARGAR_MODIFICAR_TAREAS) document.getElementById('menuBtnCatalogoTareas').classList.remove('oculto');
+  if (permisos.CARGAR_MODIFICAR_TAREAS || permisos.EJECUTAR_TAREAS_COLA) document.getElementById('menuBtnTrabajosExtra').classList.remove('oculto');
+  if (permisos.CONTROL_CIERRE_GAS) document.getElementById('menuBtnGas').classList.remove('oculto');
+  if (permisos.EJECUTAR_TAREAS_COLA || permisos.CARGAR_MODIFICAR_TAREAS || permisos.GENERAR_CODIGO_SALTO) document.getElementById('menuBtnColaHoy').classList.remove('oculto');
+  if (permisos.REGISTRAR_LECTURA_EQUIPO || permisos.CARGAR_MODIFICAR_TAREAS) document.getElementById('menuBtnChecklistEquipos').classList.remove('oculto');
+  if (permisos.REGISTRAR_ENTRADA_MATERIAL || permisos.REGISTRAR_SALIDA_MATERIAL || permisos.REGISTRAR_CONSUMO_MATERIAL || permisos.AUDITORIA_INVENTARIO) document.getElementById('menuBtnAlmacen').classList.remove('oculto');
+  if (permisos.ENVIAR_TICKET || permisos.ATENDER_TICKET || permisos.CARGAR_MODIFICAR_TAREAS) document.getElementById('menuBtnTickets').classList.remove('oculto');
+  if (permisos.EJECUTAR_TAREAS_COLA) document.getElementById('menuBtnComida').classList.remove('oculto');
+  if (permisos.ALTA_BAJA_USUARIOS || permisos.CARGAR_MODIFICAR_TAREAS || permisos.AUDITORIA_INVENTARIO || permisos.GENERAR_CODIGO_SALTO) document.getElementById('menuBtnReportes').classList.remove('oculto');
+
+  mostrarMenuPrincipal();
+  cargarTodo();
+}
+
+// ---------- login ----------
+function hacerLogin() {
+  var usuario = document.getElementById('li_usuario').value.trim();
+  var password = document.getElementById('li_password').value;
+  if (!usuario || !password) { document.getElementById('avisoLogin').innerHTML = '<div class="aviso error">Escribe tu usuario y tu contraseña.</div>'; return; }
+  google.script.run
+  .withSuccessHandler(function (resp) {
+    if (!resp.ok) { document.getElementById('avisoLogin').innerHTML = '<div class="aviso error">' + escapar_(resp.mensaje) + '</div>'; return; }
+    guardarToken_(resp.token);
+    entrarConSesion(resp.usuario);
+  })
+  .withFailureHandler(function (err) { document.getElementById('avisoLogin').innerHTML = '<div class="aviso error">' + escapar_(err && err.message ? err.message : err) + '</div>'; })
+  .login(usuario, password);
+}
+
+// ---------- activar cuenta ----------
+function pedirCodigoActivar() {
+  var correo = document.getElementById('ac_correo').value.trim();
+  if (!correo) { document.getElementById('avisoActivar').innerHTML = '<div class="aviso error">Escribe tu correo.</div>'; return; }
+  google.script.run
+  .withSuccessHandler(function (resp) {
+    if (!resp.ok) { document.getElementById('avisoActivar').innerHTML = '<div class="aviso error">' + escapar_(resp.mensaje) + '</div>'; return; }
+    if (resp.yaActivada) {
+      document.getElementById('avisoActivar').innerHTML = '<div class="aviso info">Esa cuenta ya tiene usuario y contraseña. Usa "Olvidé mi contraseña" si no la recuerdas.</div>';
+      return;
+    }
+    document.getElementById('avisoActivar').innerHTML = '<div class="aviso exito">' + escapar_(resp.mensaje) + '</div>';
+    document.getElementById('activarPaso1').classList.add('oculto');
+    document.getElementById('activarPaso2').classList.remove('oculto');
+  })
+  .withFailureHandler(function (err) { document.getElementById('avisoActivar').innerHTML = '<div class="aviso error">' + escapar_(err && err.message ? err.message : err) + '</div>'; })
+  .solicitarCodigoAcceso(correo);
+}
+
+function confirmarActivar() {
+  var correo = document.getElementById('ac_correo').value.trim();
+  var codigo = document.getElementById('ac_codigo').value.trim();
+  var usuario = document.getElementById('ac_usuario').value.trim();
+  var password = document.getElementById('ac_password').value;
+  if (!codigo || !usuario || !password) { document.getElementById('avisoActivar').innerHTML = '<div class="aviso error">Completa código, usuario y contraseña.</div>'; return; }
+  google.script.run
+  .withSuccessHandler(function (resp) {
+    guardarToken_(resp.token);
+    entrarConSesion(resp.usuario);
+  })
+  .withFailureHandler(function (err) { document.getElementById('avisoActivar').innerHTML = '<div class="aviso error">' + escapar_(err && err.message ? err.message : err) + '</div>'; })
+  .crearCredenciales(correo, codigo, usuario, password);
+}
+
+// ---------- recuperar contraseña ----------
+function pedirCodigoRecuperar() {
+  var correo = document.getElementById('re_correo').value.trim();
+  if (!correo) { document.getElementById('avisoRecuperar').innerHTML = '<div class="aviso error">Escribe tu correo o usuario.</div>'; return; }
+  google.script.run
+  .withSuccessHandler(function (resp) {
+    if (!resp.ok) { document.getElementById('avisoRecuperar').innerHTML = '<div class="aviso error">' + escapar_(resp.mensaje) + '</div>'; return; }
+    document.getElementById('avisoRecuperar').innerHTML = '<div class="aviso exito">' + escapar_(resp.mensaje) + '</div>';
+    document.getElementById('recuperarPaso1').classList.add('oculto');
+    document.getElementById('recuperarPaso2').classList.remove('oculto');
+  })
+  .withFailureHandler(function (err) { document.getElementById('avisoRecuperar').innerHTML = '<div class="aviso error">' + escapar_(err && err.message ? err.message : err) + '</div>'; })
+  .solicitarCodigoAcceso(correo);
+}
+
+function confirmarRecuperar() {
+  var correo = document.getElementById('re_correo').value.trim();
+  var codigo = document.getElementById('re_codigo').value.trim();
+  var password = document.getElementById('re_password').value;
+  if (!codigo || !password) { document.getElementById('avisoRecuperar').innerHTML = '<div class="aviso error">Completa el código y la nueva contraseña.</div>'; return; }
+  google.script.run
+  .withSuccessHandler(function () {
+    document.getElementById('avisoRecuperar').innerHTML = '<div class="aviso exito">Contraseña actualizada. Ya puedes iniciar sesión.</div>';
+    setTimeout(function () { mostrarLogin(); }, 1500);
+  })
+  .withFailureHandler(function (err) { document.getElementById('avisoRecuperar').innerHTML = '<div class="aviso error">' + escapar_(err && err.message ? err.message : err) + '</div>'; })
+  .restablecerPassword(correo, codigo, password);
+}
+
+// ---------- cerrar sesión ----------
+function cerrarSesionClick() {
+  var t = TOKEN;
+  borrarToken_();
+  document.getElementById('panel').classList.add('oculto');
+  mostrarLogin();
+  if (t) google.script.run.withFailureHandler(function () {}).cerrarSesion(t);
+}
+
+// ---------- mi cuenta ----------
+function guardarMiUsuario() {
+  var nuevo = document.getElementById('mc_nuevo_usuario').value.trim();
+  if (!nuevo) { document.getElementById('avisoCuenta').innerHTML = '<div class="aviso error">Escribe el nuevo usuario.</div>'; return; }
+  google.script.run
+  .withSuccessHandler(function (resp) {
+    ESTADO.usuarioActual.usuario = resp.usuario;
+    document.getElementById('mc_nuevo_usuario').value = '';
+    document.getElementById('avisoCuenta').innerHTML = '<div class="aviso exito">Usuario actualizado a "' + escapar_(resp.usuario) + '".</div>';
+  })
+  .withFailureHandler(function (err) { document.getElementById('avisoCuenta').innerHTML = '<div class="aviso error">' + escapar_(err && err.message ? err.message : err) + '</div>'; })
+  .cambiarMiUsuario(TOKEN, nuevo);
+}
+
+function guardarMiPassword() {
+  var actual = document.getElementById('mc_password_actual').value;
+  var nueva = document.getElementById('mc_password_nueva').value;
+  if (!actual || !nueva) { document.getElementById('avisoCuenta').innerHTML = '<div class="aviso error">Completa tu contraseña actual y la nueva.</div>'; return; }
+  google.script.run
+  .withSuccessHandler(function () {
+    document.getElementById('mc_password_actual').value = '';
+    document.getElementById('mc_password_nueva').value = '';
+    document.getElementById('avisoCuenta').innerHTML = '<div class="aviso exito">Contraseña actualizada.</div>';
+  })
+  .withFailureHandler(function (err) { document.getElementById('avisoCuenta').innerHTML = '<div class="aviso error">' + escapar_(err && err.message ? err.message : err) + '</div>'; })
+  .cambiarMiPassword(TOKEN, actual, nueva);
+}
+
+
+// ---------------------------------------------------------------
+// CARGA DE DATOS POR MÓDULO (bajo demanda)
+// Al iniciar sesión solo se carga lo que necesita el menú principal.
+// Los datos de cada sección se piden al servidor hasta que se abre esa sección,
+// y se vuelven a pedir cada vez que se abre (siempre muestra información fresca).
+// ---------------------------------------------------------------
+
+function cargarTodo() {
+  var p = ESTADO.usuarioActual.permisos;
+  google.script.run.withSuccessHandler(pintarRecordatorios).withFailureHandler(mostrarError).proximasRevisionesProgramadas(TOKEN);
+  if (p.EJECUTAR_TAREAS_COLA) {
+    google.script.run.withSuccessHandler(pintarEstadoComida).withFailureHandler(mostrarError).obtenerEstadoComidaHoy(TOKEN);
+  }
+  // El formulario de alta de usuarios queda visible en el panel para administradores: necesita roles y horarios.
+  if (p.ALTA_BAJA_USUARIOS && SECCION_ACTUAL !== 'tarjetaUsuarios') cargarRolesYHorarios_();
+  if (SECCION_ACTUAL) cargarSeccion_(SECCION_ACTUAL);
+}
+
+function cargarRolesYHorarios_() {
+  if (!ESTADO.roles || !ESTADO.roles.length) {
+    google.script.run.withSuccessHandler(function (roles) {
+      ESTADO.roles = roles;
+      var sel = document.getElementById('fu_rol');
+      sel.innerHTML = roles.map(function (r) { return '<option value="' + r + '">' + r + '</option>'; }).join('');
+    }).rolesDisponibles(TOKEN);
+  }
+  google.script.run.withSuccessHandler(pintarHorarios).withFailureHandler(mostrarError).listarHorarios(TOKEN);
+}
+
+/** Muestra "Cargando…" en las tablas vacías de la sección mientras llegan los datos. */
+function marcarCargando_(idSeccion) {
+  var sec = document.getElementById(idSeccion);
+  if (!sec) return;
+  var cuerpos = sec.querySelectorAll('tbody');
+  for (var i = 0; i < cuerpos.length; i++) {
+    if (!cuerpos[i].children.length) cuerpos[i].innerHTML = '<tr><td colspan="9" class="pequeno">Cargando…</td></tr>';
+  }
+}
+
+/** Checklist de equipos: la definición de lecturas se pide una sola vez por sesión; la lista del día, siempre. */
+function cargarChecklistEquipos_(alTerminar) {
+  var p = ESTADO.usuarioActual.permisos;
+  if (!(p.REGISTRAR_LECTURA_EQUIPO || p.CARGAR_MODIFICAR_TAREAS)) return;
+  if (!ESTADO.definicionLecturas) {
+    google.script.run.withSuccessHandler(function (def) {
+      ESTADO.definicionLecturas = def;
+    }).withFailureHandler(mostrarError).obtenerDefinicionLecturasEquipo(TOKEN);
+  }
+  google.script.run.withSuccessHandler(function (lista) {
+    pintarChecklistEquipos(lista);
+    if (alTerminar) alTerminar();
+  }).withFailureHandler(mostrarError).listarChecklistEquiposDelDia(TOKEN);
+}
+
+/** Pide al servidor solo los datos de la sección que se acaba de abrir. */
+function cargarSeccion_(idSeccion) {
+  if (!ESTADO.usuarioActual) return;
+  var p = ESTADO.usuarioActual.permisos;
+  marcarCargando_(idSeccion);
+  switch (idSeccion) {
+    case 'tarjetaUsuarios':
+    cargarRolesYHorarios_();
+    google.script.run.withSuccessHandler(pintarUsuarios).withFailureHandler(mostrarError).listarUsuarios(TOKEN, false);
+    break;
+    case 'tarjetaHorarios':
+    google.script.run.withSuccessHandler(pintarHorarios).withFailureHandler(mostrarError).listarHorarios(TOKEN);
+    break;
+    case 'tarjetaPermisos':
+    if (p.EDITAR_PERMISOS_ROLES) {
+      google.script.run.withSuccessHandler(pintarMatrizPermisos).withFailureHandler(mostrarError).obtenerMatrizPermisos(TOKEN);
+    }
+    break;
+    case 'tarjetaAuditoria':
+    if (p.ALTA_BAJA_USUARIOS) {
+      google.script.run.withSuccessHandler(pintarAuditoria).withFailureHandler(mostrarError).listarAuditoriaReciente(TOKEN, 60);
+    }
+    break;
+    case 'tarjetaCatalogoTareas':
+    if (p.CARGAR_MODIFICAR_TAREAS) {
+      google.script.run.withSuccessHandler(pintarCatalogoTareas).withFailureHandler(mostrarError).listarCatalogoTareas(TOKEN);
+    }
+    break;
+    case 'tarjetaGasAdmin':
+    if (p.CONTROL_CIERRE_GAS) cargarGasAdmin();
+    break;
+    case 'tarjetaTrabajosExtra':
+    if (p.CARGAR_MODIFICAR_TAREAS || p.EJECUTAR_TAREAS_COLA) {
+      google.script.run.withSuccessHandler(pintarTrabajosExtra).withFailureHandler(mostrarError).listarTrabajosExtra(TOKEN);
+    }
+    break;
+    case 'tarjetaColaHoy':
+    // La cola usa el checklist de equipos para saber qué tareas abren "Registrar lectura del equipo".
+    var colaPintada = false;
+    cargarChecklistEquipos_(function () {
+      if (colaPintada) pintarColaHoy(ESTADO.colaHoy);
+    });
+    if (p.EJECUTAR_TAREAS_COLA || p.CARGAR_MODIFICAR_TAREAS || p.GENERAR_CODIGO_SALTO) {
+      google.script.run.withSuccessHandler(function (filas) {
+        colaPintada = true;
+        pintarColaHoy(filas);
+      }).withFailureHandler(mostrarError).listarColaDelDia(TOKEN, null);
+    }
+    break;
+    case 'tarjetaChecklistEquipos':
+    cargarChecklistEquipos_();
+    break;
+    case 'tarjetaAlmacen':
+    if (p.REGISTRAR_ENTRADA_MATERIAL || p.REGISTRAR_SALIDA_MATERIAL || p.REGISTRAR_CONSUMO_MATERIAL || p.AUDITORIA_INVENTARIO) {
+      google.script.run.withSuccessHandler(pintarAlmacen).withFailureHandler(mostrarError).listarAlmacen(TOKEN);
+    }
+    break;
+    case 'tarjetaTickets':
+    if (p.ENVIAR_TICKET || p.ATENDER_TICKET || p.CARGAR_MODIFICAR_TAREAS) {
+      google.script.run.withSuccessHandler(pintarTickets).withFailureHandler(mostrarError).listarTickets(TOKEN);
+    }
+    if (p.ENVIAR_TICKET) {
+      google.script.run.withSuccessHandler(function (lista) { ESTADO.destinatariosTicket = lista; }).withFailureHandler(mostrarError).listarDestinatariosTicket(TOKEN);
+    }
+    break;
+    case 'tarjetaReportes':
+    cargarReportes_();
+    break;
+    case 'tarjetaComida':
+    if (p.EJECUTAR_TAREAS_COLA) {
+      google.script.run.withSuccessHandler(pintarEstadoComida).withFailureHandler(mostrarError).obtenerEstadoComidaHoy(TOKEN);
+    }
+    break;
+  }
+}
+
+function mostrarError(err) {
+  var div = document.getElementById('avisoGeneral');
+  div.innerHTML = '<div class="aviso error">' + (err && err.message ? err.message : err) + '</div>';
+  setTimeout(function () { div.innerHTML = ''; }, 6000);
+}
+
+function mostrarExito(msg) {
+  var div = document.getElementById('avisoGeneral');
+  div.innerHTML = '<div class="aviso exito">' + msg + '</div>';
+  setTimeout(function () { div.innerHTML = ''; }, 4000);
+}
+
+function escapar_(s) {
+  return String(s === undefined || s === null ? '' : s)
+  .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+
+</script>

@@ -1,0 +1,297 @@
+<script>
+// MÓDULO js_tickets_comida — Tickets e indicaciones + registro de comida
+function pintarTickets(lista) {
+  ESTADO.tickets = lista;
+  var puedeAtender = !!ESTADO.usuarioActual.permisos.ATENDER_TICKET;
+  var puedeCrear = !!ESTADO.usuarioActual.permisos.ENVIAR_TICKET;
+  var miId = ESTADO.usuarioActual.id_usuario;
+  var filas = lista.map(function (t) {
+    var claseBadge = t.estado === 'Atendido' ? 'activo' : (t.estado === 'Cancelado' ? 'inactivo' : '');
+    var botones = '';
+    if (puedeAtender && t.estado === 'Abierto' && (t.dirigido_a === miId || true)) {
+      botones += '<button class="exito" onclick="atenderTicketUI(\'' + t.ticket_id + '\')">Atender</button>';
+    }
+    if (puedeCrear && t.estado === 'Abierto') {
+      botones += '<button class="secundario" onclick="abrirFormTicket(\'' + t.ticket_id + '\')">Editar</button>';
+      botones += '<button class="peligro" onclick="abrirModalCancelarTicket(\'' + t.ticket_id + '\')">Cancelar</button>';
+    }
+    var fecha = t.fecha_hora_creacion ? String(t.fecha_hora_creacion).replace('T', ' ').substring(0, 16) : '';
+    return '<tr>' +
+    '<td>' + escapar_(fecha) + '</td>' +
+    '<td>' + escapar_(t.creado_por_nombre) + '</td>' +
+    '<td>' + escapar_(t.dirigido_a_nombre) + '</td>' +
+    '<td>' + escapar_(t.mensaje) + ligaFotosAntes_(t.fotos_antes_urls) + '</td>' +
+    '<td>' + escapar_(t.prioridad) + '</td>' +
+    '<td><span class="badge ' + claseBadge + '">' + escapar_(t.estado) + '</span></td>' +
+    '<td><div class="fila-botones">' + botones + '</div></td>' +
+    '</tr>';
+  }).join('');
+  document.getElementById('tbodyTickets').innerHTML = filas || '<tr><td colspan="7" class="pequeno">Sin tickets registrados.</td></tr>';
+  var tarjeta = document.getElementById('tarjetaTickets');
+  if (puedeCrear && tarjeta && !document.getElementById('btnNuevoTicket')) {
+    var boton = document.createElement('button');
+    boton.id = 'btnNuevoTicket';
+    boton.className = 'primario';
+    boton.style.marginBottom = '12px';
+    boton.textContent = '+ Nuevo ticket';
+    boton.onclick = function () { abrirFormTicket(); };
+    tarjeta.insertBefore(boton, tarjeta.querySelector('table'));
+  }
+}
+
+function abrirFormTicket(ticketId) {
+  var select = document.getElementById('ft_dirigido_a');
+  select.innerHTML = '<option value="ABIERTO">🟢 Ticket abierto — lo toma quien se desocupe primero</option>' +
+    ESTADO.destinatariosTicket.map(function (u) {
+    return '<option value="' + u.id_usuario + '">' + escapar_(u.nombre_completo) + ' (' + escapar_(u.rol) + ')</option>';
+  }).join('');
+  var ticket = ticketId ? (ESTADO.tickets || []).find(function (t) { return t.ticket_id === ticketId; }) : null;
+  document.getElementById('ft_ticket_id').value = ticket ? ticket.ticket_id : '';
+  FOTOS_TICKET = [];
+  document.getElementById('ft_fotos_antes').value = '';
+  document.getElementById('ft_fotos_antes_previas').innerHTML = ticket && ticket.fotos_antes_urls ? '<span class="pequeno">Fotos actuales:</span>' + ligaFotosAntes_(ticket.fotos_antes_urls) : '';
+  pintarFotosAntesTicket_();
+  document.getElementById('ft_motivo').value = '';
+  if (ticket) {
+    document.getElementById('tituloFormTicket').textContent = 'Editar ticket ' + ticket.ticket_id;
+    document.getElementById('btnGuardarTicket').textContent = 'Guardar cambios';
+    select.value = ticket.dirigido_a;
+    document.getElementById('ft_prioridad').value = ticket.prioridad || 'Media';
+    document.getElementById('ft_mensaje').value = ticket.mensaje || '';
+    document.getElementById('ft_bloque_motivo').classList.remove('oculto');
+  } else {
+    document.getElementById('tituloFormTicket').textContent = 'Nuevo ticket';
+    document.getElementById('btnGuardarTicket').textContent = 'Enviar ticket';
+    document.getElementById('ft_prioridad').value = 'Media';
+    document.getElementById('ft_mensaje').value = '';
+    document.getElementById('ft_bloque_motivo').classList.add('oculto');
+  }
+  document.getElementById('tarjetaFormTicket').classList.remove('oculto');
+  document.getElementById('tarjetaFormTicket').scrollIntoView({ behavior: 'smooth' });
+}
+
+function cerrarFormTicket() {
+  document.getElementById('tarjetaFormTicket').classList.add('oculto');
+}
+
+function guardarTicketUI() {
+  var ticketId = document.getElementById('ft_ticket_id').value;
+  if (ticketId && !document.getElementById('ft_motivo').value.trim()) { mostrarError('Escribe el motivo de la edición.'); return; }
+  var boton = document.getElementById('btnGuardarTicket');
+  var textoOriginal = boton.textContent;
+  var total = FOTOS_TICKET.length;
+  if (!total) { guardarTicketConFotos_([]); return; }
+  boton.disabled = true;
+  var listas = [], i = 0;
+  var restaurar = function () { boton.disabled = false; boton.textContent = textoOriginal; };
+  var siguiente = function () {
+    if (i >= total) {
+      boton.textContent = 'Subiendo fotos…';
+      guardarTicketConFotos_(listas, restaurar);
+      return;
+    }
+    boton.textContent = 'Preparando fotos (' + (i + 1) + ' de ' + total + ')…';
+    comprimirImagenParaSubir_(FOTOS_TICKET[i], function (base64, mime, nombre) {
+      listas.push({ base64: base64, mime: mime, nombre: nombre });
+      i++;
+      siguiente();
+    }, function (e) { restaurar(); mostrarError(e); });
+  };
+  siguiente();
+}
+
+function guardarTicketConFotos_(fotos, alTerminar) {
+  alTerminar = alTerminar || function () { };
+  var ticketId = document.getElementById('ft_ticket_id').value;
+  if (ticketId) {
+    var motivo = document.getElementById('ft_motivo').value.trim();
+    if (!motivo) { mostrarError('Escribe el motivo de la edición.'); return; }
+    var cambios = {
+      dirigido_a: document.getElementById('ft_dirigido_a').value,
+      prioridad: document.getElementById('ft_prioridad').value,
+      mensaje: document.getElementById('ft_mensaje').value.trim(),
+      motivo: motivo,
+      fotos_nuevas: fotos
+    };
+    google.script.run
+    .withSuccessHandler(function (r) {
+      alTerminar();
+      FOTOS_TICKET = [];
+      mostrarExito('Ticket ' + ticketId + ' actualizado.');
+      cerrarFormTicket();
+      if (r && r.tickets) pintarTickets(r.tickets);
+      if (r && r.cola && document.getElementById('tbodyColaHoy')) pintarColaHoy(r.cola);
+    })
+    .withFailureHandler(function (e) { alTerminar(); mostrarError(e); })
+    .editarTicket(TOKEN, ticketId, cambios);
+    return;
+  }
+  var datos = {
+    dirigido_a: document.getElementById('ft_dirigido_a').value,
+    prioridad: document.getElementById('ft_prioridad').value,
+    mensaje: document.getElementById('ft_mensaje').value.trim(),
+    fotos: fotos
+  };
+  google.script.run
+  .withSuccessHandler(function (r) {
+    alTerminar();
+    FOTOS_TICKET = [];
+    mostrarExito('Ticket ' + r.ticket_id + ' enviado.');
+    cerrarFormTicket();
+    if (r.tickets) pintarTickets(r.tickets);
+    if (r.cola && document.getElementById('tbodyColaHoy')) pintarColaHoy(r.cola);
+  })
+  .withFailureHandler(function (e) { alTerminar(); mostrarError(e); })
+  .crearTicket(TOKEN, datos);
+}
+
+// --- Fotos del "antes" al crear o editar un ticket ---
+var FOTOS_TICKET = [];
+var MAX_FOTOS_TICKET = 5;
+
+function agregarFotosAntesTicket() {
+  var input = document.getElementById('ft_fotos_antes');
+  var archivos = input.files ? Array.prototype.slice.call(input.files) : [];
+  archivos.forEach(function (a) { if (FOTOS_TICKET.length < MAX_FOTOS_TICKET) FOTOS_TICKET.push(a); });
+  if (archivos.length && FOTOS_TICKET.length >= MAX_FOTOS_TICKET) mostrarError('Máximo ' + MAX_FOTOS_TICKET + ' fotos por ticket.');
+  input.value = '';
+  pintarFotosAntesTicket_();
+}
+
+function pintarFotosAntesTicket_() {
+  var cont = document.getElementById('ft_fotos_antes_lista');
+  if (!cont) return;
+  var cuenta = document.getElementById('ft_fotos_antes_cuenta');
+  if (cuenta) cuenta.textContent = FOTOS_TICKET.length ? FOTOS_TICKET.length + (FOTOS_TICKET.length === 1 ? ' foto nueva' : ' fotos nuevas') : '';
+  cont.innerHTML = '';
+  FOTOS_TICKET.forEach(function (archivo, i) {
+    var caja = document.createElement('div');
+    caja.className = 'foto-mini';
+    var img = document.createElement('img');
+    img.src = URL.createObjectURL(archivo);
+    var quitar = document.createElement('button');
+    quitar.type = 'button';
+    quitar.textContent = '✕';
+    quitar.onclick = function () { FOTOS_TICKET.splice(i, 1); pintarFotosAntesTicket_(); };
+    caja.appendChild(img);
+    caja.appendChild(quitar);
+    cont.appendChild(caja);
+  });
+}
+
+function abrirModalCancelarTicket(ticketId) {
+  document.getElementById('ct_ticket_id').value = ticketId;
+  document.getElementById('ct_motivo').value = '';
+  document.getElementById('tarjetaCancelarTicket').classList.remove('oculto');
+  document.getElementById('tarjetaCancelarTicket').scrollIntoView({ behavior: 'smooth' });
+}
+
+function cerrarModalCancelarTicket() {
+  document.getElementById('tarjetaCancelarTicket').classList.add('oculto');
+}
+
+function confirmarCancelarTicketUI() {
+  var ticketId = document.getElementById('ct_ticket_id').value;
+  var motivo = document.getElementById('ct_motivo').value.trim();
+  if (!motivo) { mostrarError('Escribe el motivo de la cancelación.'); return; }
+  google.script.run
+  .withSuccessHandler(function (r) {
+    mostrarExito('Ticket ' + ticketId + ' cancelado.');
+    cerrarModalCancelarTicket();
+    if (r && r.tickets) pintarTickets(r.tickets);
+    if (r && r.cola && document.getElementById('tbodyColaHoy')) pintarColaHoy(r.cola);
+  })
+  .withFailureHandler(mostrarError)
+  .cancelarTicket(TOKEN, ticketId, motivo);
+}
+
+function atenderTicketUI(ticketId) {
+  google.script.run
+  .withSuccessHandler(function (r) {
+    mostrarExito('Ticket ' + ticketId + ' marcado como atendido.');
+    if (r && r.tickets) pintarTickets(r.tickets);
+  })
+  .withFailureHandler(mostrarError)
+  .atenderTicket(TOKEN, ticketId);
+}
+
+
+function formatearMinutos_(mins) {
+  mins = Math.round(mins || 0);
+  var h = Math.floor(mins / 60), m = mins % 60;
+  return h > 0 ? (h + ' h ' + m + ' min') : (m + ' min');
+}
+
+function actualizarTextoComidaAcumulado_() {
+  var span = document.getElementById('comidaAcumuladoTexto');
+  var estado = ESTADO.comida;
+  if (!span || !estado) return;
+  var previos = Number(estado.acumuladoMinutosPrevios) || 0;
+  var actual = 0;
+  if (estado.enComida && estado.horaInicio) {
+    actual = Math.max(0, (Date.now() - new Date(estado.horaInicio).getTime()) / 60000);
+  }
+  var partes = [];
+  if (estado.enComida) partes.push('Sesión actual: ' + formatearMinutos_(actual));
+  partes.push('Total acumulado hoy: ' + formatearMinutos_(previos + actual));
+  span.textContent = partes.join(' · ');
+}
+
+function pintarEstadoComida(estado) {
+  ESTADO.comida = estado;
+  var texto = document.getElementById('comidaEstadoTexto');
+  var btnIniciar = document.getElementById('btnIniciarComida');
+  var btnTerminar = document.getElementById('btnTerminarComida');
+  if (!texto || !btnIniciar || !btnTerminar) return;
+  if (estado && estado.enComida) {
+    texto.textContent = 'Comida en curso desde las ' + (estado.horaInicio ? new Date(estado.horaInicio).toLocaleTimeString() : '') + '.';
+    btnIniciar.classList.add('oculto');
+    btnTerminar.classList.remove('oculto');
+  } else {
+    texto.textContent = 'No tienes un registro de comida abierto hoy.';
+    btnIniciar.classList.remove('oculto');
+    btnTerminar.classList.add('oculto');
+  }
+  actualizarTextoComidaAcumulado_();
+  if (ESTADO.comidaTimer) { clearInterval(ESTADO.comidaTimer); ESTADO.comidaTimer = null; }
+  if (estado && estado.enComida) {
+    ESTADO.comidaTimer = setInterval(actualizarTextoComidaAcumulado_, 30000);
+  }
+  if (ESTADO.usuarioActual && ESTADO.usuarioActual.permisos.CARGAR_MODIFICAR_TAREAS) {
+    document.getElementById('bloqueComidaTodos').classList.remove('oculto');
+    google.script.run.withSuccessHandler(pintarComidaTodos).withFailureHandler(mostrarError).listarComidasHoyTodos(TOKEN);
+  }
+}
+
+function pintarComidaTodos(lista) {
+  document.getElementById('tbodyComidaTodos').innerHTML = (lista && lista.length) ? lista.map(function (r) {
+    return '<tr><td>' + escapar_(r.nombre_completo) + '</td>' +
+    '<td>' + (r.enComida ? '<span class="badge inactivo">En comida</span>' : '<span class="pequeno">—</span>') + '</td>' +
+    '<td>' + escapar_(r.sesiones) + '</td>' +
+    '<td>' + formatearMinutos_(r.acumuladoMinutos) + '</td></tr>';
+  }).join('') : '<tr><td colspan="4" class="pequeno">Sin registros de comida hoy.</td></tr>';
+}
+
+function iniciarComidaUI() {
+  google.script.run
+  .withSuccessHandler(function (r) {
+    mostrarExito(r && r.tarea_pausada ? 'Comida iniciada. Tu trabajo en curso quedó pausado; al regresar lo continúas desde la cola.' : 'Comida iniciada.');
+    if (r && r.estado) pintarEstadoComida(r.estado);
+    if (r && r.cola && document.getElementById('tbodyColaHoy')) pintarColaHoy(r.cola);
+  })
+  .withFailureHandler(mostrarError)
+  .iniciarComida(TOKEN);
+}
+
+function terminarComidaUI() {
+  google.script.run
+  .withSuccessHandler(function (r) {
+    mostrarExito('Comida terminada. Continúa tu trabajo pausado desde la cola ("Continuar trabajo" o "Tomar siguiente tarea").');
+    if (r && r.estado) pintarEstadoComida(r.estado);
+  })
+  .withFailureHandler(mostrarError)
+  .terminarComida(TOKEN);
+}
+
+
+</script>

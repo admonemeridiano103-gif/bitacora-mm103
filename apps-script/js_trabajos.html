@@ -1,0 +1,955 @@
+<script>
+// MÓDULO js_trabajos — Trabajos: catálogo de tareas, trabajos programados y cola de trabajo de hoy
+// ---------------------------------------------------------------
+// BLOQUE 2: CATALOGO DE TAREAS DIARIAS
+// ---------------------------------------------------------------
+
+function pintarCatalogoTareas(tareas) {
+  ESTADO.tareas = tareas;
+  var filas = tareas.map(function (t) {
+    return '<tr>' +
+    '<td>' + escapar_(t.orden_cola) + '</td>' +
+    '<td>' + escapar_(t.nombre_tarea) + '</td>' +
+    '<td>' + escapar_(t.tipo) + '</td>' +
+    '<td>' + escapar_(t.area_o_equipo_asociado) + '</td>' +
+    '<td>' + (t.requiere_pasos ? 'Sí' : 'No') + '</td>' +
+    '<td><span class="badge ' + (t.activo ? 'activo' : 'inactivo') + '">' + (t.activo ? 'Activa' : 'Inactiva') + '</span></td>' +
+    '<td><div class="fila-botones">' +
+    '<button class="secundario" onclick="abrirEdicionTarea(\'' + t.tarea_id + '\')">Editar</button>' +
+    '<button class="' + (t.activo ? 'peligro' : 'exito') + '" onclick="toggleActivoTareaUI(\'' + t.tarea_id + '\', ' + (!!t.activo) + ')">' + (t.activo ? 'Desactivar' : 'Activar') + '</button>' +
+    '</div></td>' +
+    '</tr>';
+  }).join('');
+  document.getElementById('tbodyCatalogoTareas').innerHTML = filas || '<tr><td colspan="7" class="pequeno">Sin tareas todavía.</td></tr>';
+
+  var tarjeta = document.getElementById('tarjetaCatalogoTareas');
+  if (tarjeta && !document.getElementById('btnNuevaTarea')) {
+    var boton = document.createElement('button');
+    boton.id = 'btnNuevaTarea';
+    boton.className = 'primario';
+    boton.style.marginBottom = '12px';
+    boton.textContent = '+ Nueva tarea';
+    boton.onclick = abrirAltaTarea;
+    tarjeta.insertBefore(boton, tarjeta.querySelector('table'));
+  }
+}
+
+function abrirAltaTarea() {
+  document.getElementById('tituloFormularioTarea').textContent = 'Nueva tarea diaria';
+  document.getElementById('ft_tarea_id').value = '';
+  document.getElementById('ft_nombre').value = '';
+  document.getElementById('ft_tipo').value = '';
+  document.getElementById('ft_area').value = '';
+  document.getElementById('ft_orden').value = '';
+  document.getElementById('ft_requiere_pasos').value = 'false';
+  document.getElementById('ft_activo').value = 'true';
+  document.getElementById('ft_notas').value = '';
+  prepararSelectEquiposTarea_('');
+  document.getElementById('detalleTareaPasosMateriales').classList.add('oculto');
+  document.getElementById('tarjetaFormTarea').classList.remove('oculto');
+  document.getElementById('tarjetaFormTarea').scrollIntoView({ behavior: 'smooth' });
+}
+
+function abrirEdicionTarea(tareaId) {
+  google.script.run.withSuccessHandler(function (detalle) {
+    document.getElementById('tituloFormularioTarea').textContent = 'Editar tarea: ' + detalle.tarea.nombre_tarea;
+    document.getElementById('ft_tarea_id').value = detalle.tarea.tarea_id;
+    document.getElementById('ft_nombre').value = detalle.tarea.nombre_tarea || '';
+    document.getElementById('ft_tipo').value = detalle.tarea.tipo || '';
+    document.getElementById('ft_area').value = detalle.tarea.area_o_equipo_asociado || '';
+    document.getElementById('ft_orden').value = detalle.tarea.orden_cola || '';
+    document.getElementById('ft_requiere_pasos').value = detalle.tarea.requiere_pasos ? 'true' : 'false';
+    document.getElementById('ft_activo').value = detalle.tarea.activo ? 'true' : 'false';
+    document.getElementById('ft_notas').value = detalle.tarea.notas || '';
+  prepararSelectEquiposTarea_(detalle.tarea.equipos_checklist || '');
+    ESTADO.tareaDetalleActual = detalle.tarea.tarea_id;
+    pintarPasosTarea(detalle.pasos);
+    pintarMaterialesTarea(detalle.materiales);
+    document.getElementById('detalleTareaPasosMateriales').classList.remove('oculto');
+    document.getElementById('tarjetaFormTarea').classList.remove('oculto');
+    document.getElementById('tarjetaFormTarea').scrollIntoView({ behavior: 'smooth' });
+  }).withFailureHandler(mostrarError).obtenerTareaDetalle(TOKEN, tareaId);
+}
+
+function cerrarFormularioTarea() {
+  document.getElementById('tarjetaFormTarea').classList.add('oculto');
+  ESTADO.tareaDetalleActual = null;
+}
+
+function guardarTareaUI() {
+  var idTarea = document.getElementById('ft_tarea_id').value;
+  var datos = {
+    nombre_tarea: document.getElementById('ft_nombre').value.trim(),
+    tipo: document.getElementById('ft_tipo').value.trim(),
+    area_o_equipo_asociado: document.getElementById('ft_area').value.trim(),
+    orden_cola: document.getElementById('ft_orden').value ? Number(document.getElementById('ft_orden').value) : undefined,
+    requiere_pasos: document.getElementById('ft_requiere_pasos').value === 'true',
+    activo: document.getElementById('ft_activo').value === 'true',
+    notas: document.getElementById('ft_notas').value.trim(),
+    equipos_checklist: document.getElementById('ft_equipos').value
+  };
+  if (idTarea) datos.tarea_id = idTarea;
+  google.script.run
+  .withSuccessHandler(function (r) {
+    mostrarExito(idTarea ? 'Tarea actualizada.' : 'Tarea creada: ' + r.tarea_id + '.');
+    cerrarFormularioTarea();
+    google.script.run.withSuccessHandler(pintarCatalogoTareas).withFailureHandler(mostrarError).listarCatalogoTareas(TOKEN);
+  })
+  .withFailureHandler(mostrarError)
+  .guardarTarea(TOKEN, datos);
+}
+
+function toggleActivoTareaUI(tareaId, activoActual) {
+  google.script.run
+  .withSuccessHandler(function () {
+    mostrarExito('Tarea actualizada.');
+    google.script.run.withSuccessHandler(pintarCatalogoTareas).withFailureHandler(mostrarError).listarCatalogoTareas(TOKEN);
+  })
+  .withFailureHandler(mostrarError)
+  .cambiarActivoTarea(TOKEN, tareaId, !activoActual);
+}
+
+function pintarPasosTarea(pasos) {
+  var filas = pasos.map(function (p) {
+    return '<tr><td>' + escapar_(p.orden_paso) + '</td><td>' + escapar_(p.nombre_paso) + '</td><td>' + escapar_(p.descripcion) + '</td>' +
+    '<td><button class="peligro" onclick="eliminarPasoUI(\'' + p.paso_id + '\')">Eliminar</button></td></tr>';
+  }).join('');
+  document.getElementById('tbodyPasosTarea').innerHTML = filas || '<tr><td colspan="4" class="pequeno">Sin pasos.</td></tr>';
+  document.getElementById('fp_paso_id').value = '';
+  document.getElementById('fp_orden').value = '';
+  document.getElementById('fp_nombre').value = '';
+  document.getElementById('fp_descripcion').value = '';
+}
+
+function guardarPasoUI() {
+  if (!ESTADO.tareaDetalleActual) return;
+  var datos = {
+    tarea_id: ESTADO.tareaDetalleActual,
+    orden_paso: document.getElementById('fp_orden').value ? Number(document.getElementById('fp_orden').value) : undefined,
+    nombre_paso: document.getElementById('fp_nombre').value.trim(),
+    descripcion: document.getElementById('fp_descripcion').value.trim()
+  };
+  google.script.run
+  .withSuccessHandler(function () {
+    mostrarExito('Paso guardado.');
+    google.script.run.withSuccessHandler(function (detalle) {
+      pintarPasosTarea(detalle.pasos);
+      pintarMaterialesTarea(detalle.materiales);
+    }).withFailureHandler(mostrarError).obtenerTareaDetalle(TOKEN, ESTADO.tareaDetalleActual);
+  })
+  .withFailureHandler(mostrarError)
+  .guardarPaso(TOKEN, datos);
+}
+
+function eliminarPasoUI(pasoId) {
+  google.script.run
+  .withSuccessHandler(function () {
+    mostrarExito('Paso eliminado.');
+    google.script.run.withSuccessHandler(function (detalle) {
+      pintarPasosTarea(detalle.pasos);
+      pintarMaterialesTarea(detalle.materiales);
+    }).withFailureHandler(mostrarError).obtenerTareaDetalle(TOKEN, ESTADO.tareaDetalleActual);
+  })
+  .withFailureHandler(mostrarError)
+  .eliminarPaso(TOKEN, pasoId);
+}
+
+function pintarMaterialesTarea(materiales) {
+  var filas = materiales.map(function (mat) {
+    return '<tr><td>' + escapar_(mat.material_id) + '</td><td>' + escapar_(mat.cantidad_predeterminada) + '</td><td>' + escapar_(mat.unidad) + '</td>' +
+    '<td><button class="peligro" onclick="eliminarMaterialUI(\'' + mat.relacion_id + '\')">Eliminar</button></td></tr>';
+  }).join('');
+  document.getElementById('tbodyMaterialesTarea').innerHTML = filas || '<tr><td colspan="4" class="pequeno">Sin materiales.</td></tr>';
+  document.getElementById('fm_relacion_id').value = '';
+  document.getElementById('fm_material').value = '';
+  document.getElementById('fm_cantidad').value = '';
+  document.getElementById('fm_unidad').value = '';
+}
+
+function guardarMaterialUI() {
+  if (!ESTADO.tareaDetalleActual) return;
+  var datos = {
+    tarea_id: ESTADO.tareaDetalleActual,
+    material_id: document.getElementById('fm_material').value.trim(),
+    cantidad_predeterminada: document.getElementById('fm_cantidad').value.trim(),
+    unidad: document.getElementById('fm_unidad').value.trim()
+  };
+  google.script.run
+  .withSuccessHandler(function () {
+    mostrarExito('Material agregado.');
+    google.script.run.withSuccessHandler(function (detalle) {
+      pintarPasosTarea(detalle.pasos);
+      pintarMaterialesTarea(detalle.materiales);
+    }).withFailureHandler(mostrarError).obtenerTareaDetalle(TOKEN, ESTADO.tareaDetalleActual);
+  })
+  .withFailureHandler(mostrarError)
+  .guardarMaterialTarea(TOKEN, datos);
+}
+
+function eliminarMaterialUI(relacionId) {
+  google.script.run
+  .withSuccessHandler(function () {
+    mostrarExito('Material eliminado.');
+    google.script.run.withSuccessHandler(function (detalle) {
+      pintarPasosTarea(detalle.pasos);
+      pintarMaterialesTarea(detalle.materiales);
+    }).withFailureHandler(mostrarError).obtenerTareaDetalle(TOKEN, ESTADO.tareaDetalleActual);
+  })
+  .withFailureHandler(mostrarError)
+  .eliminarMaterialTarea(TOKEN, relacionId);
+}
+
+// ---------------------------------------------------------------
+// BLOQUE 2: TRABAJOS EXTRA
+// ---------------------------------------------------------------
+
+function pintarTrabajosExtra(lista) {
+  ESTADO.trabajosExtra = lista;
+  var puedeCrear = !!ESTADO.usuarioActual.permisos.CARGAR_MODIFICAR_TAREAS;
+  var puedeCerrar = !!ESTADO.usuarioActual.permisos.EJECUTAR_TAREAS_COLA || puedeCrear;
+  var filas = lista.map(function (e) {
+    var botones = '';
+    if (puedeCrear) {
+      botones += '<button class="secundario" onclick="abrirEdicionTrabajoExtraUI(\'' + e.id + '\')">Editar</button>';
+    }
+    if (puedeCerrar && e.estado !== 'Completado' && e.estado !== 'Cancelado') {
+      botones += '<button class="exito" onclick="cambiarEstadoTrabajoExtraUI(\'' + e.id + '\', \'Completado\')">Completar</button>';
+    }
+    if (puedeCrear && e.estado === 'Pendiente') {
+      botones += '<button class="peligro" onclick="cambiarEstadoTrabajoExtraUI(\'' + e.id + '\', \'Cancelado\')">Cancelar</button>';
+    }
+    var claseBadge = e.estado === 'Completado' ? 'activo' : (e.estado === 'Cancelado' ? 'inactivo' : '');
+    return '<tr>' +
+    '<td>' + escapar_(e.fecha_programada) + (e.hora_programada ? ' ' + escapar_(e.hora_programada) : '') + '</td>' +
+    '<td>' + escapar_(e.descripcion) + etiquetaTipoTrabajo_(e) + '</td>' +
+    '<td>' + escapar_(e.prioridad) + '</td>' +
+    '<td>' + escapar_(e.usuario_asignado) + '</td>' +
+    '<td><span class="badge ' + claseBadge + '">' + escapar_(e.estado) + '</span></td>' +
+    '<td><div class="fila-botones">' + botones + '</div></td>' +
+    '</tr>';
+  }).join('');
+  document.getElementById('tbodyTrabajosExtra').innerHTML = filas || '<tr><td colspan="6" class="pequeno">Sin trabajos programados.</td></tr>';
+
+  var tarjeta = document.getElementById('tarjetaTrabajosExtra');
+  if (puedeCrear && tarjeta && !document.getElementById('btnNuevoTrabajoExtra')) {
+    var boton = document.createElement('button');
+    boton.id = 'btnNuevoTrabajoExtra';
+    boton.className = 'primario';
+    boton.style.marginBottom = '12px';
+    boton.textContent = '+ Nuevo trabajo programado';
+    boton.onclick = abrirAltaTrabajoExtra;
+    tarjeta.insertBefore(boton, tarjeta.querySelector('table'));
+  }
+}
+
+function abrirAltaTrabajoExtra() {
+  document.getElementById('fe_descripcion').value = '';
+  document.getElementById('fe_origen').value = '';
+  document.getElementById('fe_fecha').value = '';
+  document.getElementById('fe_hora').value = '';
+  document.getElementById('fe_prioridad').value = 'Normal';
+  document.getElementById('fe_asignado').value = '';
+  document.getElementById('fe_tipo').value = '';
+  prepararCajaEquipos_('fe_equipos', 'fe_equipos_box', '');
+  cambiarTipoTrabajoExtraUI();
+  ESTADO.trabajoExtraEditando = '';
+  document.getElementById('tarjetaFormTrabajoExtra').classList.remove('oculto');
+  document.getElementById('tarjetaFormTrabajoExtra').scrollIntoView({ behavior: 'smooth' });
+}
+
+function abrirEdicionTrabajoExtraUI(id) {
+  var e = (ESTADO.trabajosExtra || []).filter(function (x) { return x.id === id; })[0];
+  if (!e) return;
+  document.getElementById('fe_descripcion').value = e.descripcion || '';
+  document.getElementById('fe_origen').value = e.origen || '';
+  document.getElementById('fe_fecha').value = e.fecha_programada || '';
+  document.getElementById('fe_hora').value = e.hora_programada || '';
+  document.getElementById('fe_prioridad').value = e.prioridad || 'Normal';
+  document.getElementById('fe_asignado').value = e.usuario_asignado || '';
+  document.getElementById('fe_tipo').value = e.tipo_trabajo || '';
+  prepararCajaEquipos_('fe_equipos', 'fe_equipos_box', e.equipos_checklist || '');
+  cambiarTipoTrabajoExtraUI();
+  ESTADO.trabajoExtraEditando = id;
+  document.getElementById('tarjetaFormTrabajoExtra').classList.remove('oculto');
+  document.getElementById('tarjetaFormTrabajoExtra').scrollIntoView({ behavior: 'smooth' });
+}
+
+function cambiarTipoTrabajoExtraUI() {
+  var tipo = document.getElementById('fe_tipo').value;
+  document.getElementById('fe_equipos_fila').classList.toggle('oculto', tipo !== 'Checklist');
+  var ayuda = document.getElementById('fe_tipo_ayuda');
+  if (tipo === 'Gas') ayuda.textContent = 'Al llegar la fecha programada, la cola del técnico recibe la tarea de Cierre/Apertura de gas (el módulo debe estar activo). Requiere fecha.';
+  else if (tipo === 'Checklist') ayuda.textContent = 'Al llegar la fecha, la cola recibe el checklist de los equipos que marques. Si un equipo ya está en el checklist diario de ese día, no se duplica. Requiere fecha.';
+  else ayuda.textContent = 'Tarea normal: el técnico la completa con foto.';
+}
+
+function etiquetaTipoTrabajo_(e) {
+  if (e.tipo_trabajo === 'Gas') return ' <span class="pequeno">· Cierre/Apertura de gas</span>';
+  if (e.tipo_trabajo === 'Checklist') return ' <span class="pequeno">· Checklist: ' + escapar_(String(e.equipos_checklist || '')) + '</span>';
+  return '';
+}
+
+function cerrarFormularioTrabajoExtra() {
+  document.getElementById('tarjetaFormTrabajoExtra').classList.add('oculto');
+}
+
+function guardarTrabajoExtraUI() {
+  var datos = {
+    descripcion: document.getElementById('fe_descripcion').value.trim(),
+    origen: document.getElementById('fe_origen').value.trim(),
+    fecha_programada: document.getElementById('fe_fecha').value,
+    hora_programada: document.getElementById('fe_hora').value,
+    prioridad: document.getElementById('fe_prioridad').value,
+    usuario_asignado: document.getElementById('fe_asignado').value.trim(),
+    tipo_trabajo: document.getElementById('fe_tipo').value,
+    equipos_checklist: document.getElementById('fe_equipos').value
+  };
+  if (ESTADO.trabajoExtraEditando) datos.id = ESTADO.trabajoExtraEditando;
+  google.script.run
+  .withSuccessHandler(function () {
+    mostrarExito(ESTADO.trabajoExtraEditando ? 'Trabajo programado editado.' : 'Trabajo programado creado.');
+    cerrarFormularioTrabajoExtra();
+    google.script.run.withSuccessHandler(pintarTrabajosExtra).withFailureHandler(mostrarError).listarTrabajosExtra(TOKEN);
+  })
+  .withFailureHandler(mostrarError)
+  .guardarTrabajoExtra(TOKEN, datos);
+}
+
+function cambiarEstadoTrabajoExtraUI(id, nuevoEstado) {
+  google.script.run
+  .withSuccessHandler(function () {
+    mostrarExito('Trabajo programado actualizado.');
+    google.script.run.withSuccessHandler(pintarTrabajosExtra).withFailureHandler(mostrarError).listarTrabajosExtra(TOKEN);
+  })
+  .withFailureHandler(mostrarError)
+  .cambiarEstadoTrabajoExtra(TOKEN, id, nuevoEstado);
+}
+
+// ---------------------------------------------------------------
+// BLOQUE 2: COLA DE TRABAJO DE HOY
+// ---------------------------------------------------------------
+
+function pintarRecordatorios(lista) {
+  var div = document.getElementById('avisoRecordatorios');
+  if (!div) return;
+  if (!lista || !lista.length) { div.innerHTML = ''; return; }
+  div.innerHTML = lista.map(function (r) {
+    var cuando = r.en_dias === 0 ? 'hoy' : (r.en_dias === 1 ? 'mañana' : 'en ' + r.en_dias + ' días');
+    return '<div class="aviso">Recordatorio: ' + escapar_(r.nombre_tarea) + ' programada para ' + cuando + ' (' + escapar_(r.fecha) + ').</div>';
+  }).join('');
+}
+
+function pintarColaHoy(filas) {
+  ESTADO.colaHoy = filas;
+  var tbodyCola = document.getElementById('tbodyColaHoy');
+  if (tbodyCola) tbodyCola.style.opacity = '';
+  var permisos = ESTADO.usuarioActual.permisos;
+  var miId = ESTADO.usuarioActual.id_usuario;
+
+  var cuerpo = filas.map(function (f) {
+    var botones = '';
+    var esMia = f.usuario_asignado_actual === miId;
+    if (permisos.EJECUTAR_TAREAS_COLA && f.estado === 'En proceso' && esMia) {
+      var eqsTarea = f.equipos_checklist || [];
+      if (!eqsTarea.length) {
+        var equipoAsociado = (ESTADO.checklistEquipos || []).find(function (e) { return e.equipo_id === f.area_o_equipo_asociado; });
+        if (equipoAsociado) eqsTarea = [equipoAsociado.equipo_id];
+      }
+      if (eqsTarea.length === 1) {
+        botones += '<button class="exito" onclick="abrirFormLecturaEquipo(\'' + eqsTarea[0] + '\')">Registrar lectura del equipo</button>';
+      } else if (eqsTarea.length > 1) {
+        var pendientesEq = eqsTarea.filter(function (id) { var e = (ESTADO.checklistEquipos || []).find(function (x) { return x.equipo_id === id; }); return !e || !e.completado_hoy; }).length;
+        botones += '<button class="exito" onclick="mostrarSeccion(\'tarjetaChecklistEquipos\')">Abrir checklist de equipos (' + pendientesEq + ' de ' + eqsTarea.length + ' pendientes)</button>';
+      } else {
+        if (f.es_gas) {
+          botones += '<button class="exito" onclick="abrirTareaGas(\'' + f.registro_id + '\')">Abrir cierre/apertura de gas</button>';
+        } else {
+          botones += '<button class="exito" onclick="abrirCompletarTarea(\'' + f.registro_id + '\')">Completar</button>';
+        }
+      }
+      if (!f.bloqueo_estricto) {
+        botones += '<button class="peligro" onclick="abrirModalSaltoUnico(\'' + f.registro_id + '\')">Saltar tarea</button>';
+      }
+      botones += '<button class="secundario" title="Para continuarlo después (otra visita, comida, falta material…)" onclick="pausarTareaUI(\'' + f.registro_id + '\')">Pausar</button>';
+      botones += '<button class="secundario" onclick="mostrarSeccion(\'tarjetaAlmacen\')">Almacén</button>';
+    }
+    // Cualquier técnico puede tomar un pendiente libre (o dirigido a él) o continuar un pausado.
+    if (permisos.EJECUTAR_TAREAS_COLA && f.estado === 'Pendiente' && (!f.usuario_asignado_actual || esMia)) {
+      botones += '<button class="primario" onclick="tomarTareaUI(\'' + f.registro_id + '\')">Tomar</button>';
+    }
+    if (permisos.EJECUTAR_TAREAS_COLA && f.estado === 'Pausado') {
+      botones += '<button class="exito" onclick="tomarTareaUI(\'' + f.registro_id + '\')">Continuar trabajo</button>';
+    }
+    if (permisos.GENERAR_CODIGO_SALTO && !f.bloqueo_estricto && (f.estado === 'Pendiente' || f.estado === 'En proceso')) {
+      botones += '<button class="secundario" onclick="generarCodigoSaltoUI(\'' + f.registro_id + '\')">Generar código de salto</button>';
+    }
+    if ((permisos.ENVIAR_TICKET || permisos.CARGAR_MODIFICAR_TAREAS) && (f.estado === 'En proceso' || f.estado === 'Pausado')) {
+      botones += '<button class="peligro" title="Lo regresa a Pendiente, como si nadie lo hubiera tomado" onclick="devolverTareaColaUI(\'' + f.registro_id + '\')">Detener y regresar a la cola</button>';
+    }
+    if ((permisos.ENVIAR_TICKET || permisos.CARGAR_MODIFICAR_TAREAS) && f.estado === 'Saltada') {
+      botones += '<button class="secundario" title="Lo regresa a Pendiente aunque ya lo hayan saltado" onclick="devolverTareaColaUI(\'' + f.registro_id + '\')">Reactivar</button>';
+    }
+    if ((permisos.ENVIAR_TICKET || permisos.CARGAR_MODIFICAR_TAREAS) && f.estado === 'Completada') {
+      botones += '<button class="peligro" title="Faltó algo: regresa a la cola con lo que hizo falta y una foto" onclick="abrirReabrirTrabajo(\'' + f.registro_id + '\')">Volver a abrir</button>';
+    }
+    var badgeClase = f.estado === 'Completada' ? 'activo' : (f.estado === 'Saltada' ? 'inactivo' : (f.estado === 'Pausado' ? 'pausado' : ''));
+    // Quien puede cargar tareas reordena cualquier pendiente; el reordenamiento anterior (solo tickets urgentes)
+    // queda para quien atiende tickets sin permiso de cargar tareas.
+    if (permisos.CARGAR_MODIFICAR_TAREAS && f.estado === 'Pendiente') {
+      botones += '<button class="secundario" title="Subir un lugar" onclick="moverTareaColaUI(\'' + f.registro_id + '\', \'subir\')">&#9650;</button>' +
+      '<button class="secundario" title="Bajar un lugar" onclick="moverTareaColaUI(\'' + f.registro_id + '\', \'bajar\')">&#9660;</button>' +
+      '<input type="number" min="1" id="movpos_' + f.registro_id + '" placeholder="#" title="Nueva posición" style="width:58px;">' +
+      '<button class="secundario" title="Mover a la posición escrita" onclick="moverTareaColaAPosicionUI(\'' + f.registro_id + '\')">Mover</button>';
+    }
+    var puedeReordenar = permisos.ATENDER_TICKET && !permisos.CARGAR_MODIFICAR_TAREAS && f.tipo_origen === 'Ticket' && f.prioridad === 'Alta' && (f.estado === 'Pendiente' || f.estado === 'En proceso');
+    if (puedeReordenar) {
+      botones += '<button class="secundario" title="Subir prioridad" onclick="moverTicketColaUI(\'' + f.registro_id + '\', \'subir\')">&#9650;</button>' +
+      '<button class="secundario" title="Bajar prioridad" onclick="moverTicketColaUI(\'' + f.registro_id + '\', \'bajar\')">&#9660;</button>';
+    }
+    return '<tr>' +
+    '<td>' + escapar_(f.posicion || f.orden_cola) + '</td>' +
+    '<td>' + escapar_(f.nombre_tarea) + ligaFotosAntes_(f.fotos_antes) + (f.area_o_equipo_asociado ? ' <span class="pequeno">(' + escapar_(f.area_o_equipo_asociado) + ')</span>' : '') + (f.tipo_origen && f.tipo_origen !== 'Catalogo' ? ' <span class="pequeno">[' + escapar_(f.tipo_origen) + (f.prioridad ? ' ' + escapar_(f.prioridad) : '') + ']</span>' : '') + (f.motivo_salto ? '<br><span class="pequeno">Motivo solicitado: ' + escapar_(f.motivo_salto) + '</span>' : '') + (f.motivo_reapertura ? '<br><span class="pequeno" style="color:#b3261e;font-weight:600;">Reabierto' + (f.reabierto_veces > 1 ? ' (' + f.reabierto_veces + ' veces)' : '') + (f.reabierto_por ? ' por ' + escapar_(f.reabierto_por) : '') + ' — falta: ' + escapar_(f.motivo_reapertura) + '</span>' + (f.tipo_origen !== 'Ticket' ? ligaFotosAntes_(f.fotos_reapertura) : '') : '') + (f.estado === 'Pausado' ? '<br><span class="pequeno"><b>Pausado</b>' + (f.pausado_por ? ' por ' + escapar_(f.pausado_por) : '') + (f.motivo_pausa ? ': ' + escapar_(f.motivo_pausa) : '') + (f.tiempo_acumulado_segundos ? ' · llevaba ' + Math.round(f.tiempo_acumulado_segundos / 60) + ' min' : '') + '</span>' : '') + '</td>' +
+    '<td><span class="badge ' + badgeClase + '">' + escapar_(f.estado) + '</span></td>' +
+    '<td>' + escapar_(f.usuario_asignado_actual) + '</td>' +
+    '<td>' + (f.hora_inicio ? new Date(f.hora_inicio).toLocaleTimeString() : '') + '</td>' +
+    '<td>' + (f.hora_fin ? new Date(f.hora_fin).toLocaleTimeString() : '') + '</td>' +
+    '<td>' + escapar_(f.tiempo_total_minutos) + '</td>' +
+    '<td><div class="fila-botones">' + botones + '</div></td>' +
+    '</tr>';
+  }).join('');
+  document.getElementById('tbodyColaHoy').innerHTML = cuerpo || '<tr><td colspan="8" class="pequeno">Sin tareas en la cola de hoy.</td></tr>';
+
+  var tarjeta = document.getElementById('tarjetaColaHoy');
+  if (permisos.EJECUTAR_TAREAS_COLA && tarjeta && !document.getElementById('btnTomarSiguiente')) {
+    var boton = document.createElement('button');
+    boton.id = 'btnTomarSiguiente';
+    boton.className = 'primario';
+    boton.style.marginBottom = '12px';
+    boton.textContent = 'Tomar siguiente tarea';
+    boton.onclick = tomarSiguienteTareaUI;
+    tarjeta.insertBefore(boton, tarjeta.querySelector('table'));
+  }
+
+  if (permisos.CARGAR_MODIFICAR_TAREAS && tarjeta && !document.getElementById('btnCerrarJornada')) {
+    var botonCierre = document.createElement('button');
+    botonCierre.id = 'btnCerrarJornada';
+    botonCierre.className = 'secundario';
+    botonCierre.style.marginBottom = '12px';
+    botonCierre.style.marginLeft = '8px';
+    botonCierre.textContent = 'Cerrar jornada';
+    botonCierre.onclick = cerrarJornadaUI;
+    tarjeta.insertBefore(botonCierre, tarjeta.querySelector('table'));
+  }
+
+}
+
+function miTrabajoEnProceso_() {
+  var miId = ESTADO.usuarioActual.id_usuario;
+  return (ESTADO.colaHoy || []).find(function (f) { return f.estado === 'En proceso' && f.usuario_asignado_actual === miId; }) || null;
+}
+
+/** "Tomar siguiente tarea": si hay trabajos pausados, primero pregunta si quiere continuar alguno. */
+function tomarSiguienteTareaUI() {
+  var pausados = (ESTADO.colaHoy || []).filter(function (f) { return f.estado === 'Pausado'; });
+  if (pausados.length) { mostrarElegirPausado_(pausados); return; }
+  tomarTareaUI('');
+}
+
+function cerrarElegirPausado_() {
+  var panel = document.getElementById('panelElegirPausado');
+  if (panel) panel.parentNode.removeChild(panel);
+}
+
+function mostrarElegirPausado_(pausados) {
+  cerrarElegirPausado_();
+  var miId = ESTADO.usuarioActual.id_usuario;
+  // Primero los que pausó el propio técnico.
+  pausados = pausados.slice().sort(function (a, b) { return (a.pausado_por === miId ? 0 : 1) - (b.pausado_por === miId ? 0 : 1); });
+  var panel = document.createElement('div');
+  panel.id = 'panelElegirPausado';
+  panel.style.cssText = 'background:#FFF8E1;border:2px solid #E89B00;border-radius:10px;padding:12px;margin:0 0 14px;';
+  panel.innerHTML = '<h3 style="margin:0 0 6px;font-size:15px;">Hay ' + pausados.length + ' trabajo' + (pausados.length > 1 ? 's' : '') + ' pausado' + (pausados.length > 1 ? 's' : '') + '</h3>' +
+    '<p class="pequeno" style="margin:0 0 10px;">¿Quieres continuar un trabajo pausado o tomar el siguiente trabajo de la cola?</p>' +
+    pausados.map(function (f) {
+      var quien = f.pausado_por === miId ? 'tú' : (f.pausado_por || f.usuario_asignado_actual || 'otra persona');
+      return '<div style="border-top:1px solid #f0d9a8;padding:8px 0;">' +
+        '<div><b>' + escapar_(f.nombre_tarea) + '</b>' + (f.area_o_equipo_asociado ? ' <span class="pequeno">(' + escapar_(f.area_o_equipo_asociado) + ')</span>' : '') + '</div>' +
+        '<div class="pequeno">Lo pausó ' + escapar_(quien) + (f.motivo_pausa ? ' — ' + escapar_(f.motivo_pausa) : '') +
+        (f.tiempo_acumulado_segundos ? ' · llevaba ' + Math.round(f.tiempo_acumulado_segundos / 60) + ' min' : '') + '</div>' +
+        '<button class="exito" style="margin-top:6px;" onclick="tomarTareaUI(\'' + f.registro_id + '\')">Continuar este trabajo</button>' +
+        '</div>';
+    }).join('') +
+    '<div class="fila-botones" style="margin-top:10px;border-top:1px solid #f0d9a8;padding-top:10px;">' +
+    '<button class="primario" onclick="tomarTareaUI(\'\')">Tomar el siguiente trabajo</button>' +
+    '<button class="secundario" onclick="cerrarElegirPausado_()">Cancelar</button></div>';
+  var tarjeta = document.getElementById('tarjetaColaHoy');
+  tarjeta.insertBefore(panel, tarjeta.querySelector('table'));
+  panel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+/**
+ * Toma un trabajo (registroId) o el siguiente de la cola (registroId vacío). Si el técnico ya
+ * tiene uno en proceso, pide el motivo y el servidor lo pausa y asigna el nuevo en una sola llamada.
+ */
+function tomarTareaUI(registroId) {
+  cerrarElegirPausado_();
+  var actual = miTrabajoEnProceso_();
+  var motivo = '';
+  if (actual && actual.registro_id !== registroId) {
+    var destino = registroId ? ((ESTADO.colaHoy || []).find(function (f) { return f.registro_id === registroId; }) || {}).nombre_tarea : 'el siguiente trabajo';
+    motivo = prompt('Tienes en proceso "' + actual.nombre_tarea + '". Se va a pausar (con el tiempo que llevas) para que tomes ' + (registroId ? '"' + destino + '"' : destino) + '.\n\n¿Por qué lo pausas? (obligatorio)');
+    if (motivo === null) return;
+    motivo = motivo.trim();
+    if (!motivo) { mostrarError('Escribe por qué pausas el trabajo que tienes en proceso.'); return; }
+  }
+  var boton = document.getElementById('btnTomarSiguiente');
+  if (boton) { boton.disabled = true; boton.textContent = 'Tomando trabajo…'; }
+  var tbody = document.getElementById('tbodyColaHoy');
+  if (tbody) tbody.style.opacity = '0.5';
+  var restaurar = function () {
+    if (boton) { boton.textContent = 'Tomar siguiente tarea'; boton.disabled = false; }
+    if (tbody) tbody.style.opacity = '';
+  };
+  google.script.run
+  .withSuccessHandler(function (r) {
+    restaurar();
+    if (r && r.cola) pintarColaHoy(r.cola);
+    if (!r.ok) {
+      if (r.necesitaMotivo) { mostrarError('Primero indica por qué pausas el trabajo que tienes en proceso.'); return; }
+      mostrarError(r.mensaje);
+      return;
+    }
+    mostrarExito((r.reanudado ? 'Continúas con: ' : 'Tomaste: ') + (r.tarea ? r.tarea.nombre_tarea : r.registro_id) + (r.pausado ? '. Tu trabajo anterior quedó pausado.' : '.'));
+  })
+  .withFailureHandler(function (e) { restaurar(); mostrarError(e); })
+  .tomarTarea(TOKEN, registroId || '', motivo);
+}
+
+function pausarTareaUI(registroId) {
+  var fila = (ESTADO.colaHoy || []).find(function (f) { return f.registro_id === registroId; });
+  var nombre = fila ? fila.nombre_tarea : registroId;
+  var motivo = prompt('Vas a pausar "' + nombre + '". Se guarda el tiempo que llevas y después lo puedes continuar tú u otro técnico.\n\n¿Por qué lo pausas? (obligatorio)\nEj.: requiere otra visita, hora de comida, falta material');
+  if (motivo === null) return;
+  motivo = motivo.trim();
+  if (!motivo) { mostrarError('Escribe por qué pausas el trabajo.'); return; }
+  google.script.run.withSuccessHandler(function (r) {
+    mostrarExito('Pausaste "' + nombre + '". Cuando regreses, tócalo en "Continuar trabajo" o en "Tomar siguiente tarea".');
+    if (r && r.cola) pintarColaHoy(r.cola);
+  }).withFailureHandler(mostrarError).pausarTareaManual(TOKEN, registroId, motivo);
+}
+
+/** Sube o baja una tarea pendiente un lugar en la cola de hoy. */
+function moverTareaColaUI(registroId, direccion) {
+  enviarMovimientoCola_(registroId, direccion);
+}
+
+/** Mueve una tarea pendiente a la posición escrita en su casilla (#). */
+function moverTareaColaAPosicionUI(registroId) {
+  var input = document.getElementById('movpos_' + registroId);
+  var pos = input ? parseInt(input.value, 10) : NaN;
+  if (!(pos >= 1)) { mostrarError('Escribe la posición a la que quieres mover la tarea (1, 2, 3...).'); return; }
+  enviarMovimientoCola_(registroId, String(pos));
+}
+
+function enviarMovimientoCola_(registroId, destino) {
+  var tbodyCola = document.getElementById('tbodyColaHoy');
+  if (tbodyCola) tbodyCola.style.opacity = '0.5';
+  google.script.run
+  .withSuccessHandler(function (r) {
+    if (r && r.cola) pintarColaHoy(r.cola);
+    else if (tbodyCola) tbodyCola.style.opacity = '';
+  })
+  .withFailureHandler(function (e) { if (tbodyCola) tbodyCola.style.opacity = ''; mostrarError(e); })
+  .moverTareaEnCola(TOKEN, registroId, destino);
+}
+
+function moverTicketColaUI(registroId, direccion) {
+  google.script.run
+  .withSuccessHandler(function (r) {
+    if (r && r.cola) pintarColaHoy(r.cola);
+  })
+  .withFailureHandler(mostrarError)
+  .moverTicketEnCola(TOKEN, registroId, direccion);
+}
+
+function cerrarJornadaUI() {
+  if (!confirm('¿Cerrar la jornada de hoy? Las tareas Pendiente, En proceso o Pausado se trasladarán al siguiente día hábil.')) return;
+  google.script.run
+  .withSuccessHandler(function (r) {
+    mostrarExito('Jornada cerrada. ' + r.trasladados + ' pendiente(s) trasladado(s) a ' + r.fecha_siguiente + '.');
+    if (r.cola) pintarColaHoy(r.cola);
+  })
+  .withFailureHandler(mostrarError)
+  .ejecutarCierreJornadaManual(TOKEN, null);
+}
+
+function abrirCompletarTarea(registroId) {
+  document.getElementById('fc_registro_id').value = registroId;
+  document.getElementById('fc_descripcion').value = '';
+  document.getElementById('fc_foto').value = '';
+  FOTOS_COMPLETAR = [];
+  pintarFotosEvidenciaTarea_();
+  document.getElementById('tarjetaCompletarTarea').classList.remove('oculto');
+  document.getElementById('tarjetaCompletarTarea').scrollIntoView({ behavior: 'smooth' });
+}
+
+function cerrarCompletarTarea() {
+  document.getElementById('tarjetaCompletarTarea').classList.add('oculto');
+}
+
+
+function comprimirImagenParaSubir_(archivo, callbackExito, callbackError) {
+  var CALIDAD_JPEG = 0.7;
+  var ANCHO_MAXIMO = 1280;
+  if (!archivo) { callbackError('No se seleccionó ningún archivo.'); return; }
+  var lector = new FileReader();
+  lector.onload = function (e) {
+    var img = new Image();
+    img.onload = function () {
+      var ancho = img.width;
+      var alto = img.height;
+      if (ancho > ANCHO_MAXIMO) {
+        alto = Math.round((alto * ANCHO_MAXIMO) / ancho);
+        ancho = ANCHO_MAXIMO;
+      }
+      var canvas = document.createElement('canvas');
+      canvas.width = ancho;
+      canvas.height = alto;
+      var ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, ancho, alto);
+      var dataUrl = canvas.toDataURL('image/jpeg', CALIDAD_JPEG);
+      var base64 = dataUrl.split(',')[1];
+      var nombre = String(archivo.name || 'foto').replace(/\.[^/.]+$/, '') + '.jpg';
+      callbackExito(base64, 'image/jpeg', nombre);
+    };
+    img.onerror = function () { callbackError('No se pudo procesar la imagen seleccionada.'); };
+    img.src = e.target.result;
+  };
+  lector.onerror = function () { callbackError('No se pudo leer el archivo seleccionado.'); };
+  lector.readAsDataURL(archivo);
+}
+
+function confirmarCompletarTareaUI() {
+  var registroId = document.getElementById('fc_registro_id').value;
+  var descripcion = document.getElementById('fc_descripcion').value.trim();
+  if (!FOTOS_COMPLETAR.length) {
+    mostrarError('Debes adjuntar al menos una foto de evidencia para completar la tarea.');
+    return;
+  }
+  var boton = document.querySelector('#tarjetaCompletarTarea button.exito');
+  var total = FOTOS_COMPLETAR.length;
+  if (boton) { boton.disabled = true; boton.textContent = 'Preparando fotos (0 de ' + total + ')…'; }
+  var restaurar = function () { if (boton) { boton.disabled = false; boton.textContent = 'Marcar como completada'; } };
+  var listas = [];
+  var i = 0;
+  var siguiente = function () {
+    if (i >= total) {
+      if (boton) boton.textContent = 'Guardando evidencia…';
+      google.script.run
+      .withSuccessHandler(function (r) {
+        restaurar();
+        mostrarExito('Tarea completada con ' + total + (total === 1 ? ' foto.' : ' fotos.'));
+        FOTOS_COMPLETAR = [];
+        cerrarCompletarTarea();
+        if (r && r.cola) pintarColaHoy(r.cola);
+      })
+      .withFailureHandler(function (e) { restaurar(); mostrarError(e); })
+      .completarTarea(TOKEN, registroId, descripcion, listas, null, null);
+      return;
+    }
+    comprimirImagenParaSubir_(FOTOS_COMPLETAR[i], function (base64, mime, nombre) {
+      listas.push({ base64: base64, mime: mime, nombre: nombre });
+      i++;
+      if (boton) boton.textContent = 'Preparando fotos (' + i + ' de ' + total + ')…';
+      siguiente();
+    }, function (e) { restaurar(); mostrarError(e); });
+  };
+  siguiente();
+}
+
+// --- Varias fotos de evidencia por trabajo (máximo 10) ---
+var FOTOS_COMPLETAR = [];
+var MAX_FOTOS_COMPLETAR = 10;
+
+function agregarFotosEvidenciaTarea() {
+  var input = document.getElementById('fc_foto');
+  var archivos = input.files ? Array.prototype.slice.call(input.files) : [];
+  archivos.forEach(function (a) {
+    if (FOTOS_COMPLETAR.length < MAX_FOTOS_COMPLETAR) FOTOS_COMPLETAR.push(a);
+  });
+  if (archivos.length && FOTOS_COMPLETAR.length >= MAX_FOTOS_COMPLETAR) mostrarError('Llegaste al máximo de ' + MAX_FOTOS_COMPLETAR + ' fotos por trabajo.');
+  input.value = '';
+  pintarFotosEvidenciaTarea_();
+}
+
+function quitarFotoEvidenciaTarea(indice) {
+  FOTOS_COMPLETAR.splice(indice, 1);
+  pintarFotosEvidenciaTarea_();
+}
+
+function pintarFotosEvidenciaTarea_() {
+  var cont = document.getElementById('fc_fotos_lista');
+  if (!cont) return;
+  var cuenta = document.getElementById('fc_fotos_cuenta');
+  if (cuenta) cuenta.textContent = FOTOS_COMPLETAR.length ? FOTOS_COMPLETAR.length + (FOTOS_COMPLETAR.length === 1 ? ' foto agregada' : ' fotos agregadas') : 'Sin fotos todavía';
+  cont.innerHTML = '';
+  FOTOS_COMPLETAR.forEach(function (archivo, i) {
+    var caja = document.createElement('div');
+    caja.className = 'foto-mini';
+    var img = document.createElement('img');
+    img.src = URL.createObjectURL(archivo);
+    var quitar = document.createElement('button');
+    quitar.type = 'button';
+    quitar.textContent = '✕';
+    quitar.title = 'Quitar foto';
+    quitar.onclick = function () { quitarFotoEvidenciaTarea(i); };
+    caja.appendChild(img);
+    caja.appendChild(quitar);
+    cont.appendChild(caja);
+  });
+}
+
+// --- Vincular tarea con el checklist de equipos ---
+var EQUIPOS_PARA_TAREAS = null;
+function prepararSelectEquiposTarea_(valor) {
+  prepararCajaEquipos_('ft_equipos', 'ft_equipos_box', valor);
+}
+
+/**
+ * Casillas para elegir exactamente qué equipos del checklist aplican (selección múltiple).
+ * El valor queda en un input oculto como lista de equipo_id separados por coma (EQ-004,EQ-005).
+ * 'HIDRO' y 'TODOS' (valores antiguos) se muestran como las casillas que cubrían.
+ */
+function prepararCajaEquipos_(idOculto, idCaja, valor) {
+  var oculto = document.getElementById(idOculto);
+  var caja = document.getElementById(idCaja);
+  if (!oculto || !caja) return;
+  oculto.value = valor || '';
+  var pintar = function (equipos) {
+    EQUIPOS_PARA_TAREAS = equipos;
+    if (!equipos.length) { caja.innerHTML = '<p class="pequeno">Cargando equipos…</p>'; return; }
+    var v = String(valor || '').trim();
+    var elegidos = {};
+    if (v === 'TODOS') equipos.forEach(function (e) { elegidos[e.equipo_id] = true; });
+    else if (v === 'HIDRO') equipos.forEach(function (e) { if (/hidroneum/i.test(String(e.nombre || '')) || /HIDRO/i.test(String(e.hoja_relacionada || ''))) elegidos[e.equipo_id] = true; });
+    else v.split(',').forEach(function (x) { if (x.trim()) elegidos[x.trim()] = true; });
+    caja.innerHTML = equipos.map(function (e) {
+      return '<label style="display:flex;align-items:center;gap:8px;margin:6px 0;font-weight:normal">' +
+        '<input type="checkbox" value="' + escapar_(e.equipo_id) + '"' + (elegidos[e.equipo_id] ? ' checked' : '') +
+        ' onchange="sincronizarCajaEquipos_(\'' + idOculto + '\', \'' + idCaja + '\')"> ' + escapar_(e.nombre) + '</label>';
+    }).join('');
+    sincronizarCajaEquipos_(idOculto, idCaja);
+  };
+  if (EQUIPOS_PARA_TAREAS) pintar(EQUIPOS_PARA_TAREAS);
+  else { pintar([]); google.script.run.withSuccessHandler(pintar).withFailureHandler(function () { }).listarCatalogoEquipos(TOKEN); }
+}
+
+function sincronizarCajaEquipos_(idOculto, idCaja) {
+  var ids = [];
+  document.querySelectorAll('#' + idCaja + ' input[type=checkbox]:checked').forEach(function (c) { ids.push(c.value); });
+  document.getElementById(idOculto).value = ids.join(',');
+}
+
+/** Bloquea el punto, la coma y otros caracteres que permitirían capturar decimales (regla "cero decimales"). */
+function bloquearDecimales_(event) {
+  var teclasProhibidas = ['.', ',', 'e', 'E', '+', '-'];
+  if (teclasProhibidas.indexOf(event.key) !== -1) { event.preventDefault(); return false; }
+  return true;
+}
+
+
+function abrirModalSaltoUnico(registroId) {
+  document.getElementById('su_registro_id').value = registroId;
+  document.getElementById('su_motivo').value = '';
+  document.getElementById('su_codigo').value = '';
+  document.getElementById('su_paso_motivo').classList.remove('oculto');
+  document.getElementById('su_paso_codigo').classList.add('oculto');
+  document.getElementById('tarjetaSaltoUnico').classList.remove('oculto');
+  document.getElementById('tarjetaSaltoUnico').scrollIntoView({ behavior: 'smooth' });
+}
+
+function cerrarSaltoUnico() {
+  document.getElementById('tarjetaSaltoUnico').classList.add('oculto');
+}
+
+function enviarAlertaSaltoUI() {
+  var registroId = document.getElementById('su_registro_id').value;
+  var motivo = document.getElementById('su_motivo').value.trim();
+  if (!motivo) { mostrarError('Escribe el motivo por el que necesitas omitir esta tarea.'); return; }
+  google.script.run
+  .withSuccessHandler(function () {
+    mostrarExito('Se avisó al supervisor. En cuanto te dé el código, captúralo abajo.');
+    document.getElementById('su_paso_motivo').classList.add('oculto');
+    document.getElementById('su_paso_codigo').classList.remove('oculto');
+  })
+  .withFailureHandler(mostrarError)
+  .solicitarCodigoSalto(TOKEN, registroId, motivo);
+}
+
+function confirmarSaltoAutorizadoUI() {
+  var registroId = document.getElementById('su_registro_id').value;
+  var codigo = document.getElementById('su_codigo').value.trim();
+  if (!codigo) { mostrarError('Captura el código que te dio el supervisor.'); return; }
+  google.script.run
+  .withSuccessHandler(function (r) {
+    mostrarExito('Tarea saltada. Puedes tomar la siguiente.');
+    cerrarSaltoUnico();
+    if (r && r.cola) pintarColaHoy(r.cola);
+  })
+  .withFailureHandler(mostrarError)
+  .saltarTareaConCodigo(TOKEN, registroId, codigo);
+}
+
+
+function generarCodigoSaltoUI(registroId) {
+  var fila = ESTADO.colaHoy.find(function (f) { return f.registro_id === registroId; });
+  var nombreTarea = fila ? fila.nombre_tarea : registroId;
+  google.script.run
+  .withSuccessHandler(function (r) {
+    var div = document.getElementById('avisoGeneral');
+    div.innerHTML = '<div class="aviso exito">Código de salto para "' + escapar_(nombreTarea) + '": <strong style="font-size:16px;">' + escapar_(r.codigo) + '</strong> — dáselo al técnico. Válido una sola vez.</div>';
+    setTimeout(function () { div.innerHTML = ''; }, 20000);
+  })
+  .withFailureHandler(mostrarError)
+  .generarCodigoSalto(TOKEN, registroId);
+}
+
+
+// --- Detener un trabajo tomado por error y regresarlo a la cola (administración) ---
+function devolverTareaColaUI(registroId) {
+  var fila = (ESTADO.colaHoy || []).find(function (f) { return f.registro_id === registroId; });
+  var nombre = fila ? fila.nombre_tarea : registroId;
+  var esSaltada = fila && fila.estado === 'Saltada';
+  var motivo = prompt((esSaltada ? 'Vas a reactivar "' + nombre + '", que estaba saltado. Regresará a la cola como pendiente.' : 'Vas a detener "' + nombre + '" y regresarlo a la cola como si nadie lo hubiera tomado.') + '\n\n¿Por qué? (obligatorio)');
+  if (motivo === null) return;
+  motivo = motivo.trim();
+  if (!motivo) { mostrarError('Escribe el motivo para regresar el trabajo a la cola.'); return; }
+  google.script.run.withSuccessHandler(function (r) {
+    mostrarExito('Listo: "' + nombre + '" ' + (esSaltada ? 'se reactivó' : 'regresó a la cola') + '. Ya puedes acomodarlo en su posición.');
+    if (r && r.cola) pintarColaHoy(r.cola);
+  }).withFailureHandler(mostrarError).devolverTareaACola(TOKEN, registroId, motivo);
+}
+
+// --- Miniaturas de las fotos del "antes" de un ticket ---
+function ligaFotosAntes_(lista) {
+  if (typeof lista === 'string') lista = lista.split('\n');
+  lista = (lista || []).map(function (u) { return String(u).trim(); }).filter(String);
+  if (!lista.length) return '';
+  return '<div class="fotos-antes">' + lista.map(function (u, i) {
+    return '<a href="' + escapar_(u) + '" target="_blank" title="Foto del antes ' + (i + 1) + '"><img src="' + escapar_(u) + '" class="foto-antes-mini" alt="Foto del antes"></a>';
+  }).join('') + '</div>';
+}
+// ----- Volver a abrir un trabajo completado (31 oct 2026) -----
+var FOTOS_REABRIR = [];
+var MAX_FOTOS_REABRIR = 5;
+
+function asegurarTarjetaReabrir_() {
+  if (document.getElementById('tarjetaReabrirTrabajo')) return;
+  var t = document.createElement('div');
+  t.id = 'tarjetaReabrirTrabajo';
+  t.className = 'tarjeta oculto';
+  t.innerHTML =
+    '<h2>Volver a abrir trabajo</h2>' +
+    '<p id="rb_nombre" style="font-weight:600;margin:0 0 10px;"></p>' +
+    '<input type="hidden" id="rb_registro_id">' +
+    '<label for="rb_motivo">¿Qué hizo falta? (obligatorio)</label>' +
+    '<textarea id="rb_motivo" rows="3" style="width:100%;" placeholder="Ejemplo: faltó resanar la esquina y limpiar el área"></textarea>' +
+    '<label for="rb_foto" style="margin-top:10px;">Fotos de lo que hace falta (al menos una, máximo ' + MAX_FOTOS_REABRIR + ')</label>' +
+    '<input type="file" id="rb_foto" accept="image/*" multiple onchange="agregarFotosReabrir()">' +
+    '<div id="rb_fotos_lista" class="fotos-lista"></div>' +
+    '<p class="pequeno" id="rb_fotos_cuenta">Sin fotos todavía</p>' +
+    '<p class="pequeno">Regresa a la cola como pendiente y sin asignar: lo puede tomar y cerrar cualquier técnico.</p>' +
+    '<div class="fila-botones" style="margin-top:10px;">' +
+    '<button type="button" class="peligro" id="rb_boton" onclick="confirmarReabrirTrabajoUI()">Volver a abrir</button>' +
+    '<button type="button" class="secundario" onclick="cerrarReabrirTrabajo()">Cancelar</button>' +
+    '</div>';
+  var cola = document.getElementById('tarjetaColaHoy');
+  if (cola && cola.parentNode) cola.parentNode.insertBefore(t, cola.nextSibling); else document.body.appendChild(t);
+}
+
+function abrirReabrirTrabajo(registroId) {
+  asegurarTarjetaReabrir_();
+  var fila = (ESTADO.colaHoy || []).find(function (f) { return f.registro_id === registroId; });
+  document.getElementById('rb_registro_id').value = registroId;
+  document.getElementById('rb_nombre').textContent = fila ? fila.nombre_tarea : registroId;
+  document.getElementById('rb_motivo').value = '';
+  FOTOS_REABRIR = [];
+  pintarFotosReabrir_();
+  var t = document.getElementById('tarjetaReabrirTrabajo');
+  t.classList.remove('oculto');
+  t.scrollIntoView({ behavior: 'smooth' });
+}
+
+function cerrarReabrirTrabajo() {
+  var t = document.getElementById('tarjetaReabrirTrabajo');
+  if (t) t.classList.add('oculto');
+}
+
+function agregarFotosReabrir() {
+  var input = document.getElementById('rb_foto');
+  var archivos = input.files ? Array.prototype.slice.call(input.files) : [];
+  archivos.forEach(function (a) { if (FOTOS_REABRIR.length < MAX_FOTOS_REABRIR) FOTOS_REABRIR.push(a); });
+  if (archivos.length && FOTOS_REABRIR.length >= MAX_FOTOS_REABRIR) mostrarError('Llegaste al máximo de ' + MAX_FOTOS_REABRIR + ' fotos.');
+  input.value = '';
+  pintarFotosReabrir_();
+}
+
+function pintarFotosReabrir_() {
+  var cont = document.getElementById('rb_fotos_lista');
+  if (!cont) return;
+  var cuenta = document.getElementById('rb_fotos_cuenta');
+  if (cuenta) cuenta.textContent = FOTOS_REABRIR.length ? FOTOS_REABRIR.length + (FOTOS_REABRIR.length === 1 ? ' foto agregada' : ' fotos agregadas') : 'Sin fotos todavía';
+  cont.innerHTML = '';
+  FOTOS_REABRIR.forEach(function (archivo, i) {
+    var caja = document.createElement('div');
+    caja.className = 'foto-mini';
+    var img = document.createElement('img');
+    img.src = URL.createObjectURL(archivo);
+    var quitar = document.createElement('button');
+    quitar.type = 'button';
+    quitar.textContent = '✕';
+    quitar.title = 'Quitar foto';
+    quitar.onclick = function () { FOTOS_REABRIR.splice(i, 1); pintarFotosReabrir_(); };
+    caja.appendChild(img);
+    caja.appendChild(quitar);
+    cont.appendChild(caja);
+  });
+}
+
+function confirmarReabrirTrabajoUI() {
+  var registroId = document.getElementById('rb_registro_id').value;
+  var motivo = document.getElementById('rb_motivo').value.trim();
+  var nombre = document.getElementById('rb_nombre').textContent;
+  if (!motivo) { mostrarError('Escribe qué hizo falta.'); return; }
+  if (!FOTOS_REABRIR.length) { mostrarError('Agrega al menos una foto de lo que hace falta.'); return; }
+  var boton = document.getElementById('rb_boton');
+  var total = FOTOS_REABRIR.length;
+  var restaurar = function () { if (boton) { boton.disabled = false; boton.textContent = 'Volver a abrir'; } };
+  if (boton) { boton.disabled = true; boton.textContent = 'Preparando fotos…'; }
+  var listas = [];
+  var i = 0;
+  var siguiente = function () {
+    if (i >= total) {
+      if (boton) boton.textContent = 'Guardando…';
+      google.script.run
+        .withSuccessHandler(function (r) {
+          restaurar();
+          FOTOS_REABRIR = [];
+          cerrarReabrirTrabajo();
+          mostrarExito('"' + nombre + '" volvió a la cola. Lo puede tomar y cerrar cualquier técnico.');
+          if (r && r.cola) pintarColaHoy(r.cola);
+        })
+        .withFailureHandler(function (e) { restaurar(); mostrarError(e); })
+        .reabrirTrabajoCompletado(TOKEN, registroId, motivo, listas);
+      return;
+    }
+    comprimirImagenParaSubir_(FOTOS_REABRIR[i], function (base64, mime, nom) {
+      listas.push({ base64: base64, mime: mime, nombre: nom });
+      i++;
+      siguiente();
+    }, function (err) { restaurar(); mostrarError(err); });
+  };
+  siguiente();
+}
+
+</script>

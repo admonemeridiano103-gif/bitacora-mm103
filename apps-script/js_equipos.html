@@ -1,0 +1,90 @@
+<script>
+// MÓDULO js_equipos — Checklist de equipos (hidroneumáticos y plantas)
+function pintarChecklistEquipos(lista) {
+  ESTADO.checklistEquipos = lista;
+  var puedeRegistrar = !!ESTADO.usuarioActual.permisos.REGISTRAR_LECTURA_EQUIPO;
+  var filas = lista.map(function (eq) {
+    var claseBadge = eq.completado_hoy ? 'activo' : 'inactivo';
+    var estadoTexto = eq.completado_hoy ? 'Completado' : 'Pendiente';
+    var boton = '';
+    if (puedeRegistrar && !eq.completado_hoy) {
+      boton = '<button class="primario" onclick="abrirFormLecturaEquipo(\'' + eq.equipo_id + '\')">Registrar lectura</button>';
+    }
+    return '<tr>' +
+    '<td>' + escapar_(eq.nombre) + '</td>' +
+    '<td>' + escapar_(eq.frecuencia_revision) + '</td>' +
+    '<td><span class="badge ' + claseBadge + '">' + estadoTexto + '</span></td>' +
+    '<td>' + (eq.registro_id ? escapar_(eq.registro_id) : '—') + '</td>' +
+    '<td>' + boton + '</td>' +
+    '</tr>';
+  }).join('');
+  document.getElementById('tbodyChecklistEquipos').innerHTML = filas || '<tr><td colspan="5" class="pequeno">Sin equipos registrados.</td></tr>';
+}
+
+function abrirFormLecturaEquipo(equipoId) {
+  var eq = ESTADO.checklistEquipos.find(function (e) { return e.equipo_id === equipoId; });
+  if (!eq) return;
+  var campos = ESTADO.definicionLecturas ? ESTADO.definicionLecturas[eq.hoja_relacionada] : null;
+  document.getElementById('fle_equipo_id').value = equipoId;
+  document.getElementById('tituloFormLecturaEquipo').textContent = 'Registrar lectura: ' + eq.nombre;
+  var contenedor = document.getElementById('camposLecturaEquipo');
+  contenedor.innerHTML = '';
+  (campos || []).forEach(function (c) {
+    var envoltura = document.createElement('div');
+    var etiqueta = document.createElement('label');
+    etiqueta.textContent = c.etiqueta;
+    envoltura.appendChild(etiqueta);
+    envoltura.appendChild(document.createElement('br'));
+    var input;
+    if (c.tipo === 'seleccion') {
+      input = document.createElement('select');
+      input.innerHTML = '<option value="">Selecciona...</option>' + (c.opciones || []).map(function (op) {
+        return '<option value="' + escapar_(op) + '">' + escapar_(op) + '</option>';
+      }).join('');
+    } else {
+      input = document.createElement('input');
+      if (c.tipo === 'booleano') {
+        input.type = 'checkbox';
+      } else if (c.tipo === 'numero') {
+        input.type = 'number';
+        input.step = 'any';
+      } else {
+        input.type = 'text';
+      }
+    }
+    input.setAttribute('data-campo', c.campo);
+    input.setAttribute('data-tipo', c.tipo);
+    envoltura.appendChild(input);
+    contenedor.appendChild(envoltura);
+  });
+  document.getElementById('tarjetaFormLecturaEquipo').classList.remove('oculto');
+  document.getElementById('tarjetaFormLecturaEquipo').scrollIntoView({ behavior: 'smooth' });
+}
+
+function cerrarFormLecturaEquipo() {
+  document.getElementById('tarjetaFormLecturaEquipo').classList.add('oculto');
+}
+
+function guardarLecturaEquipoUI() {
+  var equipoId = document.getElementById('fle_equipo_id').value;
+  var lecturas = {};
+  document.querySelectorAll('#camposLecturaEquipo [data-campo]').forEach(function (input) {
+    var tipo = input.getAttribute('data-tipo');
+    var campo = input.getAttribute('data-campo');
+    if (tipo === 'booleano') lecturas[campo] = input.checked;
+    else if (tipo === 'numero') lecturas[campo] = input.value === '' ? '' : Number(input.value);
+    else lecturas[campo] = input.value;
+  });
+  google.script.run
+  .withSuccessHandler(function (r) {
+    mostrarExito('Lectura registrada. Número de acción: ' + r.numero_accion + '.');
+    cerrarFormLecturaEquipo();
+    if (r.checklist) pintarChecklistEquipos(r.checklist);
+    if (r.cola) pintarColaHoy(r.cola);
+  })
+  .withFailureHandler(mostrarError)
+  .registrarLecturaEquipo(TOKEN, equipoId, lecturas);
+}
+
+
+</script>

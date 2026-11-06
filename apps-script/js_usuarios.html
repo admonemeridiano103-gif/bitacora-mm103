@@ -1,0 +1,172 @@
+<script>
+// MÓDULO js_usuarios — Usuarios, horarios, permisos y auditoría
+function pintarUsuarios(usuarios) {
+  ESTADO.usuarios = usuarios;
+  var puedeAdministrar = ESTADO.usuarioActual.permisos.ALTA_BAJA_USUARIOS;
+  var filas = usuarios.map(function (u) {
+    var esActivo = u.estado === 'Activo';
+    var botones = '';
+    if (puedeAdministrar) {
+      botones += '<button class="secundario" onclick="abrirEdicion(\'' + u.id_usuario + '\')">Editar</button>';
+      botones += esActivo
+      ? '<button class="peligro" onclick="darBaja(\'' + u.id_usuario + '\')">Dar de baja</button>'
+      : '<button class="exito" onclick="reactivar(\'' + u.id_usuario + '\')">Reactivar</button>';
+      botones += '<button class="secundario" onclick="regenerarCodigo(\'' + u.id_usuario + '\')">Nuevo código</button>';
+    }
+    return '<tr>' +
+    '<td>' + escapar_(u.id_usuario) + '</td>' +
+    '<td>' + escapar_(u.nombre_completo) + '</td>' +
+    '<td>' + escapar_(u.correo) + '</td>' +
+    '<td>' + escapar_(u.usuario || '—') + '</td>' +
+    '<td>' + escapar_(u.rol) + '</td>' +
+    '<td>' + escapar_(u.codigo_personal) + '</td>' +
+    '<td><span class="badge ' + (esActivo ? 'activo' : 'inactivo') + '">' + escapar_(u.estado) + '</span></td>' +
+    '<td>' + escapar_(u.horario_id) + '</td>' +
+    '<td><div class="fila-botones">' + botones + '</div></td>' +
+    '</tr>';
+  }).join('');
+  document.getElementById('tbodyUsuarios').innerHTML = filas || '<tr><td colspan="9" class="pequeno">Sin usuarios todavía.</td></tr>';
+
+  if (puedeAdministrar) {
+    var tarjeta = document.getElementById('tarjetaUsuarios');
+    if (!document.getElementById('btnNuevoUsuario')) {
+      var boton = document.createElement('button');
+      boton.id = 'btnNuevoUsuario';
+      boton.className = 'primario';
+      boton.style.marginBottom = '12px';
+      boton.textContent = '+ Nuevo usuario';
+      boton.onclick = abrirAlta;
+      tarjeta.insertBefore(boton, tarjeta.querySelector('table'));
+    }
+  }
+}
+function pintarHorarios(horarios) {
+  ESTADO.horarios = horarios;
+  var sel = document.getElementById('fu_horario');
+  sel.innerHTML = '<option value="">— Sin asignar —</option>' +
+  horarios.map(function (h) { return '<option value="' + h.horario_id + '">' + h.horario_id + ' · ' + escapar_(h.nombre_horario) + '</option>'; }).join('');
+
+  document.getElementById('tbodyHorarios').innerHTML = horarios.map(function (h) {
+    return '<tr><td>' + escapar_(h.horario_id) + '</td><td>' + escapar_(h.nombre_horario) + '</td><td>' +
+    escapar_(h.dias_aplicables) + '</td><td>' + escapar_(h.hora_entrada) + '</td><td>' + escapar_(h.hora_salida) +
+    '</td><td>' + (h.activo ? 'Sí' : 'No') + '</td></tr>';
+  }).join('') || '<tr><td colspan="6" class="pequeno">Sin horarios.</td></tr>';
+}
+
+function pintarMatrizPermisos(matriz) {
+  // Modelo original: cada FILA es un permiso y cada COLUMNA es un rol
+  // (Administrador, Seguridad Patrimonial, Auxiliar Administrativo, Técnico),
+  // con encabezado fijo arriba. Junto a cada casilla se muestra también el
+  // nombre del rol, para identificar de un vistazo a quién se le está
+  // otorgando el permiso sin depender solo del encabezado de columna.
+  var html = '<thead><tr><th class="col-fija">Permiso</th>' + matriz.roles.map(function (rol) {
+    return '<th>' + escapar_(rol) + '</th>';
+  }).join('') + '</tr></thead><tbody>';
+  matriz.filas.forEach(function (fila) {
+    html += '<tr><td class="col-fija" title="' + escapar_(fila.descripcion) + '" style="font-weight:600;">' + escapar_(fila.clave_permiso) + '</td>';
+    matriz.roles.forEach(function (rol, idxRol) {
+      var val = !!fila.valores[idxRol];
+      html += '<td class="checkbox-matriz"><label class="etiqueta-rol-permiso"><input type="checkbox" ' + (val ? 'checked' : '') +
+      ' onchange="cambiarPermiso(\'' + fila.clave_permiso + '\',\'' + rol + '\',this.checked)"> ' + escapar_(rol) + '</label></td>';
+    });
+    html += '</tr>';
+  });
+  html += '</tbody>';
+  document.getElementById('tablaPermisos').innerHTML = html;
+}
+
+function pintarAuditoria(filas) {
+  document.getElementById('tbodyAuditoria').innerHTML = filas.map(function (f) {
+    var fecha = f.timestamp ? new Date(f.timestamp).toLocaleString('es-MX') : '';
+    return '<tr><td>' + fecha + '</td><td>' + escapar_(f.correo_ejecuta) + '</td><td>' + escapar_(f.accion) +
+    '</td><td>' + escapar_(f.entidad) + (f.id_entidad_afectada ? ' (' + escapar_(f.id_entidad_afectada) + ')' : '') +
+    '</td><td>' + escapar_(f.valor_anterior) + '</td><td>' + escapar_(f.valor_nuevo) + '</td></tr>';
+  }).join('') || '<tr><td colspan="6" class="pequeno">Sin movimientos todavía.</td></tr>';
+}
+
+function cambiarPermiso(clave, rol, valor) {
+  google.script.run
+  .withSuccessHandler(function () { mostrarExito('Permiso actualizado.'); })
+  .withFailureHandler(mostrarError)
+  .actualizarPermiso(TOKEN, clave, rol, valor);
+}
+
+// ----- Alta / edición de usuario -----
+function abrirAlta() {
+  document.getElementById('tituloFormularioUsuario').textContent = 'Dar de alta usuario';
+  document.getElementById('fu_id_usuario').value = '';
+  document.getElementById('fu_nombre').value = '';
+  document.getElementById('fu_correo').value = '';
+  document.getElementById('fu_telefono').value = '';
+  document.getElementById('fu_horario').value = '';
+  document.getElementById('fu_notas').value = '';
+  document.getElementById('tarjetaAltaUsuarios').classList.remove('oculto');
+  document.getElementById('tarjetaAltaUsuarios').scrollIntoView({ behavior: 'smooth' });
+}
+
+function abrirEdicion(idUsuario) {
+  var u = ESTADO.usuarios.filter(function (x) { return x.id_usuario === idUsuario; })[0];
+  if (!u) return;
+  document.getElementById('tituloFormularioUsuario').textContent = 'Editar usuario ' + u.id_usuario;
+  document.getElementById('fu_id_usuario').value = u.id_usuario;
+  document.getElementById('fu_nombre').value = u.nombre_completo;
+  document.getElementById('fu_correo').value = u.correo;
+  document.getElementById('fu_usuario').value = u.usuario || '';
+  document.getElementById('fu_rol').value = u.rol;
+  document.getElementById('fu_telefono').value = u.telefono || '';
+  document.getElementById('fu_horario').value = u.horario_id || '';
+  document.getElementById('fu_notas').value = u.notas || '';
+  document.getElementById('tarjetaAltaUsuarios').classList.remove('oculto');
+  document.getElementById('tarjetaAltaUsuarios').scrollIntoView({ behavior: 'smooth' });
+}
+
+function cerrarFormularioUsuario() {
+  document.getElementById('tarjetaAltaUsuarios').classList.add('oculto');
+}
+
+function guardarUsuario() {
+  var idUsuario = document.getElementById('fu_id_usuario').value;
+  var datos = {
+    nombre_completo: document.getElementById('fu_nombre').value.trim(),
+    correo: document.getElementById('fu_correo').value.trim(),
+    usuario: document.getElementById('fu_usuario').value.trim().toLowerCase(),
+    rol: document.getElementById('fu_rol').value,
+    telefono: document.getElementById('fu_telefono').value.trim(),
+    horario_id: document.getElementById('fu_horario').value,
+    notas: document.getElementById('fu_notas').value.trim()
+  };
+  if (idUsuario) {
+    google.script.run
+    .withSuccessHandler(function () { mostrarExito('Usuario actualizado.'); cerrarFormularioUsuario(); cargarTodo(); })
+    .withFailureHandler(mostrarError)
+    .editarUsuario(TOKEN, idUsuario, datos);
+  } else {
+    google.script.run
+    .withSuccessHandler(function (nuevo) { mostrarExito('Usuario creado: ' + nuevo.id_usuario + ' (código ' + nuevo.codigo_personal + ').'); cerrarFormularioUsuario(); cargarTodo(); })
+    .withFailureHandler(mostrarError)
+    .altaUsuario(TOKEN, datos);
+  }
+}
+
+function darBaja(idUsuario) {
+  google.script.run
+  .withSuccessHandler(function () { mostrarExito('Usuario dado de baja.'); cargarTodo(); })
+  .withFailureHandler(mostrarError)
+  .cambiarEstadoUsuario(TOKEN, idUsuario, 'Inactivo', '');
+}
+
+function reactivar(idUsuario) {
+  google.script.run
+  .withSuccessHandler(function () { mostrarExito('Usuario reactivado.'); cargarTodo(); })
+  .withFailureHandler(mostrarError)
+  .cambiarEstadoUsuario(TOKEN, idUsuario, 'Activo', '');
+}
+
+function regenerarCodigo(idUsuario) {
+  google.script.run
+  .withSuccessHandler(function (r) { mostrarExito('Nuevo código: ' + r.codigo_personal); cargarTodo(); })
+  .withFailureHandler(mostrarError)
+  .regenerarCodigoUsuario(TOKEN, idUsuario);
+}
+
+</script>
