@@ -54,43 +54,164 @@ function pintarHorarios(horarios) {
 }
 
 function pintarMatrizPermisos(matriz) {
-  // Modelo original: cada FILA es un permiso y cada COLUMNA es un rol
-  // (Administrador, Seguridad Patrimonial, Auxiliar Administrativo, Técnico),
-  // con encabezado fijo arriba. Junto a cada casilla se muestra también el
-  // nombre del rol, para identificar de un vistazo a quién se le está
-  // otorgando el permiso sin depender solo del encabezado de columna.
+  // Escritorio: cada FILA es un permiso y cada COLUMNA un rol, con encabezado fijo; junto a cada
+  // casilla va el nombre del rol. Celular (820 px o menos, Fase 3): una tarjeta por permiso con un
+  // interruptor por rol. Las dos vistas comparten data-clave/data-rol y se mantienen sincronizadas.
+  ESTADO.matrizPermisos = matriz;
   var html = '<thead><tr><th class="col-fija">Permiso</th>' + matriz.roles.map(function (rol) {
     return '<th>' + escapar_(rol) + '</th>';
   }).join('') + '</tr></thead><tbody>';
+  var tarjetas = '';
   matriz.filas.forEach(function (fila) {
     html += '<tr><td class="col-fija" title="' + escapar_(fila.descripcion) + '" style="font-weight:600;">' + escapar_(fila.clave_permiso) + '</td>';
+    tarjetas += '<div class="perm-tarjeta" data-buscar="' + escapar_((fila.clave_permiso + ' ' + (fila.descripcion || '')).toLowerCase()) + '">' +
+      '<div class="perm-clave">' + escapar_(fila.clave_permiso) + '</div>' +
+      (fila.descripcion ? '<div class="pequeno perm-desc">' + escapar_(fila.descripcion) + '</div>' : '');
     matriz.roles.forEach(function (rol, idxRol) {
       var val = !!fila.valores[idxRol];
-      html += '<td class="checkbox-matriz"><label class="etiqueta-rol-permiso"><input type="checkbox" ' + (val ? 'checked' : '') +
-      ' onchange="cambiarPermiso(\'' + fila.clave_permiso + '\',\'' + rol + '\',this.checked)"> ' + escapar_(rol) + '</label></td>';
+      var datos = ' data-clave="' + escapar_(fila.clave_permiso) + '" data-rol="' + escapar_(rol) + '"' + (val ? ' checked' : '') + ' onchange="cambiarPermisoDesde_(this)"';
+      html += '<td class="checkbox-matriz"><label class="etiqueta-rol-permiso"><input type="checkbox"' + datos + '> ' + escapar_(rol) + '</label></td>';
+      tarjetas += '<label class="perm-rol"><span>' + escapar_(rol) + '</span><input type="checkbox" class="interruptor" role="switch"' + datos + '></label>';
     });
     html += '</tr>';
+    tarjetas += '</div>';
   });
   html += '</tbody>';
   document.getElementById('tablaPermisos').innerHTML = html;
+  document.getElementById('permTarjetas').innerHTML = tarjetas || '<p class="pequeno">Sin permisos.</p>';
+  filtrarPermisosMovil();
+}
+
+function filtrarPermisosMovil() {
+  var q = (document.getElementById('perm_buscar').value || '').trim().toLowerCase();
+  Array.prototype.forEach.call(document.querySelectorAll('#permTarjetas .perm-tarjeta'), function (t) {
+    t.classList.toggle('oculto', !!q && t.getAttribute('data-buscar').indexOf(q) === -1);
+  });
+}
+
+/** Marca igual todas las casillas del mismo permiso y rol (tabla y tarjetas). */
+function sincronizarPermiso_(clave, rol, valor) {
+  Array.prototype.forEach.call(document.querySelectorAll('#tarjetaPermisos input[data-clave]'), function (el) {
+    if (el.getAttribute('data-clave') === clave && el.getAttribute('data-rol') === rol) el.checked = valor;
+  });
+}
+
+function cambiarPermisoDesde_(el) {
+  var clave = el.getAttribute('data-clave'), rol = el.getAttribute('data-rol'), valor = el.checked;
+  sincronizarPermiso_(clave, rol, valor);
+  cambiarPermiso(clave, rol, valor);
+}
+
+// ----- Auditoría: filtros, tarjetas en celular y páginas de 20 (Fase 3) -----
+var AUDITORIA_POR_PAGINA = 20;
+
+function fechaLocalIso_(d) {
+  return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2);
 }
 
 function pintarAuditoria(filas) {
-  document.getElementById('tbodyAuditoria').innerHTML = filas.map(function (f) {
-    var fecha = f.timestamp ? new Date(f.timestamp).toLocaleString('es-MX') : '';
-    return '<tr><td>' + fecha + '</td><td>' + escapar_(f.correo_ejecuta) + '</td><td>' + escapar_(f.accion) +
+  ESTADO.auditoria = (filas || []).map(function (f) {
+    var d = f.timestamp ? new Date(f.timestamp) : null;
+    var valida = d && !isNaN(d.getTime());
+    return {
+      f: f,
+      fechaTxt: valida ? d.toLocaleString('es-MX') : '',
+      dia: valida ? fechaLocalIso_(d) : '',
+      buscar: [f.correo_ejecuta, f.accion, f.entidad, f.id_entidad_afectada, f.valor_anterior, f.valor_nuevo].join(' ').toLowerCase()
+    };
+  });
+  llenarOpcionesAuditoria_('aud_usuario', 'Todos', ESTADO.auditoria.map(function (x) { return x.f.correo_ejecuta; }));
+  llenarOpcionesAuditoria_('aud_accion', 'Todas', ESTADO.auditoria.map(function (x) { return x.f.accion; }));
+  ESTADO.auditoriaPagina = 1;
+  filtrarAuditoria(true);
+}
+
+function llenarOpcionesAuditoria_(id, textoTodos, valores) {
+  var sel = document.getElementById(id), actual = sel.value, vistos = {};
+  var unicos = valores.filter(function (v) { v = String(v || ''); if (!v || vistos[v]) return false; vistos[v] = 1; return true; }).sort();
+  sel.innerHTML = '<option value="">' + textoTodos + '</option>' + unicos.map(function (v) {
+    return '<option value="' + escapar_(v) + '">' + escapar_(v) + '</option>';
+  }).join('');
+  if (vistos[actual]) sel.value = actual;
+}
+
+function filtrarAuditoria(conservarPagina) {
+  if (!conservarPagina) ESTADO.auditoriaPagina = 1;
+  var q = (document.getElementById('aud_texto').value || '').trim().toLowerCase();
+  var quien = document.getElementById('aud_usuario').value;
+  var accion = document.getElementById('aud_accion').value;
+  var desde = document.getElementById('aud_desde').value;
+  var hasta = document.getElementById('aud_hasta').value;
+  var lista = (ESTADO.auditoria || []).filter(function (x) {
+    if (q && x.buscar.indexOf(q) === -1) return false;
+    if (quien && String(x.f.correo_ejecuta || '') !== quien) return false;
+    if (accion && String(x.f.accion || '') !== accion) return false;
+    if (desde && (!x.dia || x.dia < desde)) return false;
+    if (hasta && (!x.dia || x.dia > hasta)) return false;
+    return true;
+  });
+  var activos = [q, quien, accion, desde, hasta].filter(String).length;
+  document.getElementById('audFiltrosActivos').textContent = activos ? '(' + activos + ' activo' + (activos === 1 ? '' : 's') + ')' : '';
+  ESTADO.auditoriaFiltrada = lista;
+  pintarPaginaAuditoria_();
+}
+
+function pintarPaginaAuditoria_() {
+  var lista = ESTADO.auditoriaFiltrada || [];
+  var paginas = Math.max(1, Math.ceil(lista.length / AUDITORIA_POR_PAGINA));
+  var pagina = Math.min(Math.max(1, ESTADO.auditoriaPagina || 1), paginas);
+  ESTADO.auditoriaPagina = pagina;
+  var inicio = (pagina - 1) * AUDITORIA_POR_PAGINA;
+  var trozo = lista.slice(inicio, inicio + AUDITORIA_POR_PAGINA);
+  var total = (ESTADO.auditoria || []).length;
+
+  document.getElementById('tbodyAuditoria').innerHTML = trozo.map(function (x) {
+    var f = x.f;
+    return '<tr><td>' + escapar_(x.fechaTxt) + '</td><td>' + escapar_(f.correo_ejecuta) + '</td><td>' + escapar_(f.accion) +
     '</td><td>' + escapar_(f.entidad) + (f.id_entidad_afectada ? ' (' + escapar_(f.id_entidad_afectada) + ')' : '') +
     '</td><td>' + escapar_(f.valor_anterior) + '</td><td>' + escapar_(f.valor_nuevo) + '</td></tr>';
-  }).join('') || '<tr><td colspan="6" class="pequeno">Sin movimientos todavía.</td></tr>';
+  }).join('') || '<tr><td colspan="6" class="pequeno">' + (total ? 'Ningún movimiento coincide con los filtros.' : 'Sin movimientos todavía.') + '</td></tr>';
+
+  document.getElementById('audTarjetas').innerHTML = trozo.map(function (x) {
+    var f = x.f, detalle = '';
+    if (f.valor_anterior) detalle += '<div class="aud-detalle"><b>Antes:</b> ' + escapar_(f.valor_anterior) + '</div>';
+    if (f.valor_nuevo) detalle += '<div class="aud-detalle"><b>Después:</b> ' + escapar_(f.valor_nuevo) + '</div>';
+    return '<div class="aud-tarjeta">' +
+      '<div class="aud-cab"><span class="aud-quien">' + escapar_(f.correo_ejecuta || '—') + '</span><span class="pequeno">' + escapar_(x.fechaTxt) + '</span></div>' +
+      '<span class="aud-accion">' + escapar_(f.accion || '') + '</span>' +
+      (f.entidad ? '<div class="pequeno">' + escapar_(f.entidad) + (f.id_entidad_afectada ? ' · ' + escapar_(f.id_entidad_afectada) : '') + '</div>' : '') +
+      detalle + '</div>';
+  }).join('') || '<p class="pequeno">' + (total ? 'Ningún movimiento coincide con los filtros.' : 'Sin movimientos todavía.') + '</p>';
+
+  document.getElementById('audResumen').textContent = lista.length
+    ? 'Mostrando ' + (inicio + 1) + '–' + (inicio + trozo.length) + ' de ' + lista.length + (lista.length !== total ? ' (filtrados de ' + total + ')' : '') + ' movimientos recientes.'
+    : '';
+  document.getElementById('audPaginador').innerHTML = paginas > 1
+    ? '<button class="secundario" type="button" ' + (pagina <= 1 ? 'disabled' : '') + ' onclick="cambiarPaginaAuditoria(-1)">&larr; Anterior</button>' +
+      '<span class="pequeno">Página ' + pagina + ' de ' + paginas + '</span>' +
+      '<button class="secundario" type="button" ' + (pagina >= paginas ? 'disabled' : '') + ' onclick="cambiarPaginaAuditoria(1)">Siguiente &rarr;</button>'
+    : '';
+}
+
+function cambiarPaginaAuditoria(delta) {
+  ESTADO.auditoriaPagina = (ESTADO.auditoriaPagina || 1) + delta;
+  pintarPaginaAuditoria_();
+  var t = document.getElementById('tarjetaAuditoria');
+  if (t && t.scrollIntoView) t.scrollIntoView({ block: 'start' });
+  window.scrollBy(0, -70);
+}
+
+function limpiarFiltrosAuditoria() {
+  ['aud_texto', 'aud_usuario', 'aud_accion', 'aud_desde', 'aud_hasta'].forEach(function (id) { document.getElementById(id).value = ''; });
+  filtrarAuditoria();
 }
 
 function cambiarPermiso(clave, rol, valor) {
   google.script.run
   .withSuccessHandler(function () { mostrarExito('Permiso actualizado.'); })
-  .withFailureHandler(mostrarError)
+  .withFailureHandler(function (err) { sincronizarPermiso_(clave, rol, !valor); mostrarError(err); })
   .actualizarPermiso(TOKEN, clave, rol, valor);
 }
-
 // ----- Alta / edición de usuario -----
 function abrirAlta() {
   document.getElementById('tituloFormularioUsuario').textContent = 'Dar de alta usuario';

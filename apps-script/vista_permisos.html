@@ -1,8 +1,12 @@
 <!-- MATRIZ DE PERMISOS -->
 <div class="tarjeta oculto" id="tarjetaPermisos">
 <h2>Matriz de permisos por rol</h2>
-<p class="pequeno">Editable en vivo. Un cambio aquí aplica de inmediato a todos los usuarios de ese rol. Cada fila es un rol; los encabezados y la columna de rol quedan fijos al desplazarte.</p>
-<div class="tabla-sticky-wrap">
+<p class="pequeno">Editable en vivo. Un cambio aquí aplica de inmediato a todos los usuarios de ese rol. Cada fila es un rol; los encabezados y la columna de rol quedan fijos al desplazarte. En celular cada permiso es una tarjeta con un interruptor por rol.</p>
+<div class="solo-movil">
+<input type="search" id="perm_buscar" placeholder="Buscar permiso…" oninput="filtrarPermisosMovil()" style="margin-bottom:10px;">
+<div id="permTarjetas"></div>
+</div>
+<div class="tabla-sticky-wrap solo-escritorio">
 <table id="tablaPermisos"></table>
 </div>
 </div>

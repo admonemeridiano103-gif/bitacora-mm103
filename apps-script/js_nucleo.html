@@ -345,7 +345,7 @@ function cargarSeccion_(idSeccion) {
     break;
     case 'tarjetaAuditoria':
     if (p.ALTA_BAJA_USUARIOS) {
-      google.script.run.withSuccessHandler(pintarAuditoria).withFailureHandler(mostrarError).listarAuditoriaReciente(TOKEN, 60);
+      google.script.run.withSuccessHandler(pintarAuditoria).withFailureHandler(mostrarError).listarAuditoriaReciente(TOKEN, 300);
     }
     break;
     case 'tarjetaCatalogoTareas':
