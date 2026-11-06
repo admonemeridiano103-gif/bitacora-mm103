@@ -102,6 +102,8 @@ function pintarDashboard(r) {
     barrasReporte_('Completados por día', r.porDia.slice(-15).map(function (d) { return { fecha: d.fecha.substring(5), completadas: d.completadas }; }), 'fecha', 'completadas') +
     '</div></div>';
 
+  html += htmlComparativaReporte_(r.comparativa);
+
   if (r.porTecnico.length) {
     html += '<h3 class="rp-h3">Detalle por técnico</h3><div style="overflow-x:auto"><table><thead><tr><th>Técnico</th><th>Completados</th><th>Saltados</th><th>Min. trabajados</th><th>Min. promedio</th><th>Min. comida</th></tr></thead><tbody>' +
       r.porTecnico.map(function (p) {
@@ -109,6 +111,58 @@ function pintarDashboard(r) {
       }).join('') + '</tbody></table></div>';
   }
   document.getElementById('rp_contenido').innerHTML = html;
+  pintarGraficaComparativa_();
+}
+
+// ----- Fase 6: comparativa de tiempos por técnico (mismo trabajo) -----
+function htmlComparativaReporte_(c) {
+  ESTADO.comparativa = c || { trabajos: [] };
+  var titulo = '<h3 class="rp-h3">Comparativa de tiempos por técnico</h3>';
+  if (!c) return '';
+  if (c.error) return titulo + '<p class="pequeno">No se pudo calcular la comparativa: ' + escapar_(c.error) + '</p>';
+  var nota = '<p class="pequeno">Mismo trabajo, distinto técnico. Solo se compara a quien tiene al menos ' + escapar_(c.umbral) +
+    ' registros completados del trabajo en el periodo (se cambia en CONFIG_SISTEMA → ' + 'COMPARATIVA_MIN_REGISTROS). Diferencia contra el promedio general del trabajo: en verde, más rápido; en rojo, más lento.</p>';
+  if (!c.trabajos.length) return titulo + nota + '<p class="pequeno">Todavía no hay trabajos con al menos dos técnicos comparables en este periodo.</p>';
+  var opciones = c.trabajos.map(function (t, i) {
+    return '<option value="' + i + '">' + escapar_(t.nombre) + ' (' + t.veces + ' veces)</option>';
+  }).join('');
+  var filas = '', tarjetas = '';
+  c.trabajos.forEach(function (t) {
+    tarjetas += '<div class="aud-tarjeta"><div class="hi-titulo">' + escapar_(t.nombre) + '</div><div class="pequeno">' + escapar_(t.tipo) + ' · ' + t.veces +
+      ' veces · promedio general ' + t.promedio + ' min</div>' + t.tecnicos.map(function (p) {
+        var s = p.dif_min > 0 ? '+' : '';
+        var cl = Math.abs(p.dif_pct) < 10 ? '' : (p.dif_pct > 0 ? ' class="cmp-lento"' : ' class="cmp-rapido"');
+        return '<div class="aud-detalle"><b>' + escapar_(p.tecnico) + ':</b> ' + p.promedio + ' min en ' + p.veces + ' veces · <span' + cl + '>' + s + p.dif_min + ' min (' + s + p.dif_pct + '%)</span></div>';
+      }).join('') + '</div>';
+    t.tecnicos.forEach(function (p, j) {
+      var signo = p.dif_min > 0 ? '+' : '';
+      var clase = Math.abs(p.dif_pct) < 10 ? '' : (p.dif_pct > 0 ? ' class="cmp-lento"' : ' class="cmp-rapido"');
+      filas += '<tr><td>' + (j === 0 ? escapar_(t.nombre) + ' <span class="pequeno">(' + escapar_(t.tipo) + ')</span>' : '') + '</td><td>' + escapar_(p.tecnico) +
+        '</td><td>' + p.veces + '</td><td>' + p.promedio + '</td><td>' + t.promedio + '</td><td' + clase + '>' + signo + p.dif_min + ' min (' + signo + p.dif_pct + '%)</td></tr>';
+    });
+  });
+  return titulo + nota +
+    '<div class="rp-cmp-elegir"><label for="rp_cmpTrabajo">Gráfica del trabajo</label><select id="rp_cmpTrabajo" onchange="pintarGraficaComparativa_()">' + opciones + '</select></div>' +
+    '<div id="rp_cmpGrafica" class="rp-cmp-grafica" role="img" aria-label="Diferencia de cada técnico contra el promedio general"></div>' +
+    '<div class="solo-escritorio" style="overflow-x:auto"><table><thead><tr><th>Trabajo</th><th>Técnico</th><th>Veces</th><th>Min. promedio</th><th>Prom. general</th><th>Diferencia</th></tr></thead><tbody>' +
+    filas + '</tbody></table></div><div class="solo-movil">' + tarjetas + '</div>';
+}
+
+function pintarGraficaComparativa_() {
+  var cont = document.getElementById('rp_cmpGrafica');
+  var sel = document.getElementById('rp_cmpTrabajo');
+  if (!cont || !sel || !ESTADO.comparativa || !ESTADO.comparativa.trabajos.length) return;
+  var t = ESTADO.comparativa.trabajos[Number(sel.value) || 0];
+  var maxPct = Math.max.apply(null, t.tecnicos.map(function (p) { return Math.abs(p.dif_pct); })) || 1;
+  cont.innerHTML = '<div class="pequeno" style="margin-bottom:6px;">Promedio general: <b>' + t.promedio + ' min</b> · ← más rápido | más lento →</div>' +
+    t.tecnicos.map(function (p) {
+      var ancho = Math.max(1, Math.round(Math.abs(p.dif_pct) * 50 / maxPct));
+      var lado = p.dif_pct > 0 ? 'lento' : 'rapido';
+      var signo = p.dif_min > 0 ? '+' : '';
+      return '<div class="rp-dif-fila"><div class="rp-barra-et" title="' + escapar_(p.tecnico) + '">' + escapar_(p.tecnico) + '</div>' +
+        '<div class="rp-dif-pista"><div class="rp-dif-barra ' + lado + '" style="width:' + ancho + '%"></div></div>' +
+        '<div class="rp-barra-v">' + p.promedio + ' min <span class="pequeno">(' + signo + p.dif_pct + '%)</span></div></div>';
+    }).join('');
 }
 
 function descargarBlobReporte_(blob, nombre) {
@@ -161,6 +215,17 @@ function exportarReporteExcel() {
       hojaResumen['!cols'] = [{ wch: 34 }, { wch: 22 }, { wch: 12 }, { wch: 18 }, { wch: 14 }, { wch: 12 }];
       XLSX.utils.book_append_sheet(libro, hojaResumen, 'Resumen');
       var usados = { Resumen: true };
+      if (r.comparativa && r.comparativa.trabajos && r.comparativa.trabajos.length) {
+        var cmp = [['Comparativa de tiempos por técnico (mínimo ' + r.comparativa.umbral + ' registros por técnico)'], [],
+          ['Trabajo', 'Tipo', 'Técnico', 'Veces', 'Min. promedio', 'Prom. general del trabajo', 'Diferencia (min)', 'Diferencia (%)']];
+        r.comparativa.trabajos.forEach(function (t) {
+          t.tecnicos.forEach(function (p) { cmp.push([t.nombre, t.tipo, p.tecnico, p.veces, p.promedio, t.promedio, p.dif_min, p.dif_pct]); });
+        });
+        var hojaCmp = XLSX.utils.aoa_to_sheet(cmp);
+        hojaCmp['!cols'] = [{ wch: 40 }, { wch: 18 }, { wch: 24 }, { wch: 8 }, { wch: 14 }, { wch: 22 }, { wch: 16 }, { wch: 14 }];
+        XLSX.utils.book_append_sheet(libro, hojaCmp, 'Comparativa tiempos');
+        usados['Comparativa tiempos'] = true;
+      }
       r.hojas.forEach(function (h) {
         var nombre = String(h.nombre).replace(/[\\\/\?\*\[\]:]/g, ' ').substring(0, 31);
         var base = nombre, n = 2;

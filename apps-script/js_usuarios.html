@@ -156,6 +156,20 @@ function filtrarAuditoria(conservarPagina) {
   pintarPaginaAuditoria_();
 }
 
+/** Fase 6: texto de "Tiempo vs. promedio" para una tarea completada (vacío si no aplica). */
+function textoComparativaAuditoria_(c) {
+  if (!c) return '';
+  var base = c.minutos + ' min';
+  if (!c.comparable) return base + ' · pocos datos para comparar (' + c.veces_tecnico + ' de ' + c.umbral + ' del técnico)';
+  var signo = c.dif_min > 0 ? '+' : '';
+  return base + ' · promedio ' + c.promedio_general + ' min · ' + signo + c.dif_min + ' min (' + signo + c.dif_pct + '%)';
+}
+
+function claseComparativaAuditoria_(c) {
+  if (!c || !c.comparable || Math.abs(c.dif_pct) < 10) return '';
+  return c.dif_pct > 0 ? ' class="cmp-lento"' : ' class="cmp-rapido"';
+}
+
 function pintarPaginaAuditoria_() {
   var lista = ESTADO.auditoriaFiltrada || [];
   var paginas = Math.max(1, Math.ceil(lista.length / AUDITORIA_POR_PAGINA));
@@ -169,13 +183,14 @@ function pintarPaginaAuditoria_() {
     var f = x.f;
     return '<tr><td>' + escapar_(x.fechaTxt) + '</td><td>' + escapar_(f.correo_ejecuta) + '</td><td>' + escapar_(f.accion) +
     '</td><td>' + escapar_(f.entidad) + (f.id_entidad_afectada ? ' (' + escapar_(f.id_entidad_afectada) + ')' : '') +
-    '</td><td>' + escapar_(f.valor_anterior) + '</td><td>' + escapar_(f.valor_nuevo) + '</td></tr>';
-  }).join('') || '<tr><td colspan="6" class="pequeno">' + (total ? 'Ningún movimiento coincide con los filtros.' : 'Sin movimientos todavía.') + '</td></tr>';
+    '</td><td>' + escapar_(f.valor_anterior) + '</td><td>' + escapar_(f.valor_nuevo) + '</td><td' + claseComparativaAuditoria_(f.comparativa) + '>' + escapar_(textoComparativaAuditoria_(f.comparativa)) + '</td></tr>';
+  }).join('') || '<tr><td colspan="7" class="pequeno">' + (total ? 'Ningún movimiento coincide con los filtros.' : 'Sin movimientos todavía.') + '</td></tr>';
 
   document.getElementById('audTarjetas').innerHTML = trozo.map(function (x) {
     var f = x.f, detalle = '';
     if (f.valor_anterior) detalle += '<div class="aud-detalle"><b>Antes:</b> ' + escapar_(f.valor_anterior) + '</div>';
     if (f.valor_nuevo) detalle += '<div class="aud-detalle"><b>Después:</b> ' + escapar_(f.valor_nuevo) + '</div>';
+    if (f.comparativa) detalle += '<div class="aud-detalle"><b>Tiempo vs. promedio:</b> <span' + claseComparativaAuditoria_(f.comparativa) + '>' + escapar_(textoComparativaAuditoria_(f.comparativa)) + '</span></div>';
     return '<div class="aud-tarjeta">' +
       '<div class="aud-cab"><span class="aud-quien">' + escapar_(f.correo_ejecuta || '—') + '</span><span class="pequeno">' + escapar_(x.fechaTxt) + '</span></div>' +
       '<span class="aud-accion">' + escapar_(f.accion || '') + '</span>' +

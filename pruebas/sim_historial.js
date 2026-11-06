@@ -54,7 +54,7 @@ const ctx={ console, Date, Math, JSON, Object, Array, String, Number, isNaN, par
   Utilities:{ formatDate:(d,tz,p)=>fmt(d), newBlob:()=>({getAs:()=>({setName(){return this},getBytes:()=>[]})}), base64Encode:()=>'' },
   MailApp:{ sendEmail(){} }, GmailApp:{ sendEmail(){} }, DriveApp:{} };
 vm.createContext(ctx);
-for(const f of ['Código.js','Utilidades.js','Auth_Usuarios.js','Tareas_Cola.js','Checklist_Equipos.js','Control_Gas.js','Tickets_Comidas.js','Reapertura.js','Reportes.js','Historial.js']){
+for(const f of ['Código.js','Utilidades.js','Auth_Usuarios.js','Tareas_Cola.js','Checklist_Equipos.js','Control_Gas.js','Tickets_Comidas.js','Reapertura.js','Reportes.js','Historial.js','Comparativa.js']){
   vm.runInContext(fs.readFileSync(path.join(DIR,f),'utf8'),ctx,{filename:f}); }
 vm.runInContext(`
 var USUARIOS_PRUEBA={ ADMIN:{id_usuario:'U1',correo:'prueba.admin@ejemplo.com',nombre_completo:'Admin Prueba',p:['CARGAR_MODIFICAR_TAREAS','ENVIAR_TICKET','EJECUTAR_TAREAS_COLA','ATENDER_TICKET']},

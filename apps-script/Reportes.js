@@ -342,13 +342,27 @@ function obtenerDashboard(token, filtros) {
   requiereReportes_(token);
   var r = construirReporte_(filtros);
   delete r.hojas;
+  r.comparativa = comparativaParaReporte_(r);
   return r;
+}
+
+/** Fase 6: comparativa de tiempos del mismo periodo del reporte (sin el detalle por registro). */
+function comparativaParaReporte_(r) {
+  try {
+    var c = calcularComparativaTiempos_({ desde: r.filtros.desde, hasta: r.filtros.hasta });
+    delete c.porRegistro;
+    return c;
+  } catch (e) {
+    console.warn('Comparativa en reportes: ' + e);
+    return { umbral: '', trabajos: [], error: String(e && e.message || e) };
+  }
 }
 
 /** Datos completos para que el navegador arme el Excel. */
 function obtenerDatosReporteExcel(token, filtros) {
   var usuario = requiereReportes_(token);
   var r = construirReporte_(filtros);
+  r.comparativa = comparativaParaReporte_(r);
   registrarAuditoria_(usuario.id_usuario, usuario.correo, 'EXPORTAR_REPORTE_EXCEL', 'REPORTES', '', '', r.filtros.desde + ' a ' + r.filtros.hasta);
   return r;
 }
@@ -371,6 +385,17 @@ function guardarExcelReporteEnDrive(token, base64, nombreArchivo) {
   var blob = Utilities.newBlob(Utilities.base64Decode(base64), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', nombreArchivo);
   var archivo = carpetaReportes_().createFile(blob);
   return { ok: true, url: archivo.getUrl() };
+}
+
+/** Tabla de la comparativa para el PDF ejecutivo (máximo 60 renglones). */
+function tablaComparativaPdf_(c, tabla_) {
+  var filas = [];
+  (c.trabajos || []).forEach(function (t) {
+    t.tecnicos.forEach(function (p) {
+      filas.push([t.nombre, p.tecnico, p.veces, p.promedio, t.promedio, (p.dif_min > 0 ? '+' : '') + p.dif_min + ' min (' + (p.dif_pct > 0 ? '+' : '') + p.dif_pct + '%)']);
+    });
+  });
+  return tabla_('Mismo trabajo, distinto técnico (mínimo ' + c.umbral + ' registros por técnico)', ['Trabajo', 'Técnico', 'Veces', 'Min. promedio', 'Prom. general', 'Diferencia'], filas, 60);
 }
 
 function escHtmlReporte_(s) {
@@ -421,6 +446,7 @@ function generarReportePdf(token, filtros) {
     '<h2>Trabajo por área</h2>' +
     tabla_('Áreas', ['Área', 'Trabajos', 'Completados', 'Minutos'], r.porArea.map(function (p) { return [p.area, p.total, p.completadas, p.minutos]; })) +
     tabla_('Trabajos que más tiempo consumen', ['Trabajo', 'Veces', 'Minutos totales', 'Min. promedio'], r.porTarea.map(function (p) { return [p.trabajo, p.veces, p.minutos, p.promedio]; })) +
+    '<h2>Comparativa de tiempos por técnico</h2>' + tablaComparativaPdf_(comparativaParaReporte_(r), tabla_) +
     '<h2>Almacén</h2>' +
     tabla_('Material más utilizado (consumo y salidas)', ['Material', 'Cantidad'], r.materiales.map(function (m) { return [m.material, m.cantidad]; })) +
     '<h2>Tickets e indicaciones</h2>' +
