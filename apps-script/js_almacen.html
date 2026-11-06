@@ -1,0 +1,241 @@
+<script>
+// MÓDULO js_almacen — Almacén: materiales, herramientas y movimientos
+function pintarAlmacen(materiales) {
+  ESTADO.almacen = materiales;
+  var permisos = ESTADO.usuarioActual.permisos;
+  ESTADO.almacenPermisos = {
+    puedeEntrada: !!permisos.REGISTRAR_ENTRADA_MATERIAL,
+    puedeSalida: !!permisos.REGISTRAR_SALIDA_MATERIAL,
+    puedeConsumo: !!permisos.REGISTRAR_CONSUMO_MATERIAL,
+    puedeEditar: !!permisos.REGISTRAR_ENTRADA_MATERIAL || !!permisos.CARGAR_MODIFICAR_TAREAS
+  };
+
+  var familias = Array.from(new Set(materiales.map(function (m) { return (m.categoria || '').trim(); }).filter(function (c) { return c; }))).sort();
+  var selectFamilia = document.getElementById('alm_filtro_categoria');
+  if (selectFamilia) {
+    var valorPrevio = selectFamilia.value;
+    selectFamilia.innerHTML = '<option value="">Todas las categorías</option>' + familias.map(function (f) {
+      return '<option value="' + escapar_(f) + '">' + escapar_(f) + '</option>';
+    }).join('');
+    selectFamilia.value = familias.indexOf(valorPrevio) !== -1 ? valorPrevio : '';
+  }
+
+  filtrarAlmacenUI();
+
+  var tarjeta = document.getElementById('tarjetaAlmacen');
+  var puedeCrear = ESTADO.almacenPermisos.puedeEntrada || !!permisos.CARGAR_MODIFICAR_TAREAS;
+  if (puedeCrear && tarjeta && !document.getElementById('btnNuevoMaterialAlmacen')) {
+    var boton = document.createElement('button');
+    boton.id = 'btnNuevoMaterialAlmacen';
+    boton.className = 'primario';
+    boton.style.marginBottom = '12px';
+    boton.textContent = '+ Nuevo material';
+    boton.onclick = abrirAltaMaterialAlmacen;
+    tarjeta.insertBefore(boton, tarjeta.querySelector('div'));
+  }
+}
+
+function filtrarAlmacenUI() {
+  var permisos = ESTADO.almacenPermisos || {};
+  var familia = (document.getElementById('alm_filtro_categoria') || {}).value || '';
+  var texto = ((document.getElementById('alm_buscar') || {}).value || '').trim().toLowerCase();
+  var lista = (ESTADO.almacen || []).filter(function (m) {
+    if (familia && (m.categoria || '') !== familia) return false;
+    if (texto && String(m.nombre || '').toLowerCase().indexOf(texto) === -1) return false;
+    return true;
+  }).sort(function (a, b) {
+    var catA = (a.categoria || '').toLowerCase(), catB = (b.categoria || '').toLowerCase();
+    if (catA !== catB) return catA < catB ? -1 : 1;
+    return String(a.nombre || '').toLowerCase() < String(b.nombre || '').toLowerCase() ? -1 : 1;
+  });
+
+  var filas = [];
+  var categoriaActual = null;
+  lista.forEach(function (m) {
+    var cat = m.categoria || 'Sin categoría';
+    if (cat !== categoriaActual) {
+      categoriaActual = cat;
+      filas.push('<tr><td colspan="9" style="background:var(--gris);font-weight:600;">' + escapar_(cat) + '</td></tr>');
+    }
+    var bajoMinimo = m.stock_minimo !== '' && m.stock_minimo !== undefined && Number(m.stock_actual) < Number(m.stock_minimo);
+    var botones = '';
+    var esHerramienta = (m.tipo || 'Consumible') === 'Herramienta';
+    if (permisos.puedeEditar) botones += '<button class="secundario" onclick="abrirEdicionMaterialAlmacen(\'' + m.material_id + '\')">Editar</button>';
+    if (permisos.puedeEntrada) botones += '<button class="exito" onclick="abrirFormMovimientoAlmacen(\'' + m.material_id + '\', \'Entrada\')">Entrada</button>';
+    // Herramienta: solo Salida (préstamo). Material/Consumible: solo Consumo. Nunca ambos.
+    if (permisos.puedeSalida && esHerramienta) botones += '<button class="secundario" onclick="abrirFormMovimientoAlmacen(\'' + m.material_id + '\', \'Salida\')">Salida</button>';
+    if (permisos.puedeConsumo && !esHerramienta) botones += '<button class="peligro" onclick="abrirFormMovimientoAlmacen(\'' + m.material_id + '\', \'Consumo\')">Consumo</button>';
+    var foto = m.foto_url
+    ? '<a href="' + escapar_(m.foto_url) + '" target="_blank" rel="noopener"><img src="' + escapar_(m.foto_url) + '" alt="" style="width:44px;height:44px;object-fit:cover;border-radius:6px;border:1px solid var(--borde);"></a>'
+    : '<span class="pequeno">—</span>';
+    filas.push('<tr>' +
+    '<td>' + foto + '</td>' +
+    '<td>' + escapar_(m.nombre) + '</td>' +
+    '<td>' + escapar_(m.categoria || '') + '</td>' +
+    '<td>' + escapar_(m.tipo || 'Consumible') + '</td>' +
+    '<td>' + escapar_(m.unidad_medida) + '</td>' +
+    '<td><span class="badge ' + (bajoMinimo ? 'inactivo' : '') + '">' + escapar_(m.stock_actual) + '</span></td>' +
+    '<td>' + (m.stock_minimo === '' || m.stock_minimo === undefined ? '—' : escapar_(m.stock_minimo)) + '</td>' +
+    '<td>' + escapar_(m.ubicacion || '') + '</td>' +
+    '<td><div class="fila-botones">' + botones + '</div></td>' +
+    '</tr>');
+  });
+
+  document.getElementById('tbodyAlmacen').innerHTML = filas.length ? filas.join('') : '<tr><td colspan="9" class="pequeno">Sin materiales que coincidan.</td></tr>';
+}
+
+function limpiarFormMaterialAlmacen_() {
+  document.getElementById('fam_material_id').value = '';
+  document.getElementById('fam_nombre').value = '';
+  document.getElementById('fam_tipo').value = 'Consumible';
+  document.getElementById('fam_categoria').value = '';
+  document.getElementById('fam_unidad').value = '';
+  document.getElementById('fam_stock_inicial').value = '0';
+  document.getElementById('fam_stock_minimo').value = '';
+  document.getElementById('fam_ubicacion').value = '';
+  document.getElementById('fam_foto').value = '';
+  var prev = document.getElementById('fam_foto_preview');
+  prev.src = '';
+  prev.classList.add('oculto');
+}
+
+function abrirAltaMaterialAlmacen() {
+  limpiarFormMaterialAlmacen_();
+  document.getElementById('tituloFormMaterialAlmacen').textContent = 'Nuevo material';
+  document.getElementById('fam_bloque_ajuste').classList.add('oculto');
+  document.getElementById('tarjetaFormMaterialAlmacen').classList.remove('oculto');
+  document.getElementById('tarjetaFormMaterialAlmacen').scrollIntoView({ behavior: 'smooth' });
+}
+
+function abrirEdicionMaterialAlmacen(materialId) {
+  var m = ESTADO.almacen.filter(function (x) { return x.material_id === materialId; })[0];
+  if (!m) return;
+  limpiarFormMaterialAlmacen_();
+  document.getElementById('tituloFormMaterialAlmacen').textContent = 'Editar material';
+  document.getElementById('fam_material_id').value = m.material_id;
+  document.getElementById('fam_nombre').value = m.nombre || '';
+  document.getElementById('fam_tipo').value = m.tipo || 'Consumible';
+  document.getElementById('fam_categoria').value = m.categoria || '';
+  document.getElementById('fam_unidad').value = m.unidad_medida || '';
+  document.getElementById('fam_stock_inicial').value = m.stock_actual || '0';
+  document.getElementById('fam_stock_minimo').value = (m.stock_minimo === undefined ? '' : m.stock_minimo);
+  document.getElementById('fam_ubicacion').value = m.ubicacion || '';
+  document.getElementById('fam_nueva_existencia').value = '';
+  document.getElementById('fam_motivo_ajuste').value = '';
+  document.getElementById('fam_bloque_ajuste').classList.remove('oculto');
+  if (m.foto_url) {
+    var prev = document.getElementById('fam_foto_preview');
+    prev.src = m.foto_url;
+    prev.classList.remove('oculto');
+  }
+  document.getElementById('tarjetaFormMaterialAlmacen').classList.remove('oculto');
+  document.getElementById('tarjetaFormMaterialAlmacen').scrollIntoView({ behavior: 'smooth' });
+}
+
+function cerrarFormMaterialAlmacen() {
+  document.getElementById('tarjetaFormMaterialAlmacen').classList.add('oculto');
+}
+
+function previsualizarFotoMaterial() {
+  var input = document.getElementById('fam_foto');
+  var prev = document.getElementById('fam_foto_preview');
+  if (!input.files || !input.files[0]) { prev.classList.add('oculto'); return; }
+  var lector = new FileReader();
+  lector.onload = function (e) {
+    prev.src = e.target.result;
+    prev.classList.remove('oculto');
+  };
+  lector.readAsDataURL(input.files[0]);
+}
+
+function subirFotoMaterialSiHayArchivo_(materialId) {
+  var input = document.getElementById('fam_foto');
+  if (!input.files || !input.files[0]) return;
+  comprimirImagenParaSubir_(input.files[0], function (base64, mime, nombre) {
+    google.script.run
+    .withSuccessHandler(function () {
+      google.script.run.withSuccessHandler(pintarAlmacen).withFailureHandler(mostrarError).listarAlmacen(TOKEN);
+    })
+    .withFailureHandler(mostrarError)
+    .subirFotoMaterialAlmacen(TOKEN, materialId, base64, mime, nombre);
+  }, mostrarError);
+}
+
+function guardarMaterialAlmacenUI() {
+  var datos = {
+    material_id: document.getElementById('fam_material_id').value || undefined,
+    nombre: document.getElementById('fam_nombre').value.trim(),
+    tipo: document.getElementById('fam_tipo').value,
+    categoria: document.getElementById('fam_categoria').value.trim(),
+    unidad_medida: document.getElementById('fam_unidad').value.trim(),
+    stock_inicial: document.getElementById('fam_stock_inicial').value,
+    stock_minimo: document.getElementById('fam_stock_minimo').value,
+    ubicacion: document.getElementById('fam_ubicacion').value.trim()
+  };
+  google.script.run
+  .withSuccessHandler(function (r) {
+    mostrarExito('Material guardado en el almacén.');
+    cerrarFormMaterialAlmacen();
+    subirFotoMaterialSiHayArchivo_(r && r.material_id ? r.material_id : datos.material_id);
+    google.script.run.withSuccessHandler(pintarAlmacen).withFailureHandler(mostrarError).listarAlmacen(TOKEN);
+  })
+  .withFailureHandler(mostrarError)
+  .guardarMaterialAlmacen(TOKEN, datos);
+}
+
+function ajustarExistenciaMaterialUI() {
+  var materialId = document.getElementById('fam_material_id').value;
+  if (!materialId) { mostrarError('Guarda primero el material antes de poder ajustar su existencia.'); return; }
+  var nuevaExistencia = document.getElementById('fam_nueva_existencia').value;
+  var motivo = document.getElementById('fam_motivo_ajuste').value.trim();
+  if (nuevaExistencia === '') { mostrarError('Escribe la existencia correcta.'); return; }
+  google.script.run
+  .withSuccessHandler(function (r) {
+    mostrarExito('Existencia ajustada a ' + r.stock_actual + '.');
+    document.getElementById('fam_stock_inicial').value = r.stock_actual;
+    document.getElementById('fam_nueva_existencia').value = '';
+    document.getElementById('fam_motivo_ajuste').value = '';
+    google.script.run.withSuccessHandler(pintarAlmacen).withFailureHandler(mostrarError).listarAlmacen(TOKEN);
+  })
+  .withFailureHandler(mostrarError)
+  .ajustarExistenciaMaterial(TOKEN, materialId, nuevaExistencia, motivo);
+}
+
+function abrirFormMovimientoAlmacen(materialId, tipo) {
+  document.getElementById('fmv_material_id').value = materialId;
+  document.getElementById('fmv_tipo').value = tipo;
+  document.getElementById('fmv_cantidad').value = '';
+  document.getElementById('fmv_notas').value = '';
+  var mat = (ESTADO.almacen || []).filter(function (x) { return x.material_id === materialId; })[0];
+  document.getElementById('fmv_unidad_label').textContent = (mat && mat.unidad_medida) || 'pza';
+  document.getElementById('tituloFormMovimiento').textContent = 'Registrar ' + tipo.toLowerCase();
+  document.getElementById('tarjetaFormMovimientoAlmacen').classList.remove('oculto');
+  document.getElementById('tarjetaFormMovimientoAlmacen').scrollIntoView({ behavior: 'smooth' });
+}
+
+function cerrarFormMovimientoAlmacen() {
+  document.getElementById('tarjetaFormMovimientoAlmacen').classList.add('oculto');
+}
+
+function confirmarMovimientoAlmacenUI() {
+  var materialId = document.getElementById('fmv_material_id').value;
+  var tipo = document.getElementById('fmv_tipo').value;
+  var cantidad = Number(document.getElementById('fmv_cantidad').value);
+  var notas = document.getElementById('fmv_notas').value.trim();
+  var exito = function (r) {
+    mostrarExito('Movimiento registrado. Nueva existencia: ' + r.stock_actual + '.');
+    cerrarFormMovimientoAlmacen();
+    google.script.run.withSuccessHandler(pintarAlmacen).withFailureHandler(mostrarError).listarAlmacen(TOKEN);
+  };
+  if (tipo === 'Entrada') {
+    google.script.run.withSuccessHandler(exito).withFailureHandler(mostrarError).registrarEntradaMaterial(TOKEN, materialId, cantidad, notas);
+  } else if (tipo === 'Salida') {
+    google.script.run.withSuccessHandler(exito).withFailureHandler(mostrarError).registrarSalidaMaterial(TOKEN, materialId, cantidad, notas);
+  } else {
+    google.script.run.withSuccessHandler(exito).withFailureHandler(mostrarError).registrarConsumoMaterial(TOKEN, materialId, cantidad, '', notas);
+  }
+}
+
+
+
+</script>

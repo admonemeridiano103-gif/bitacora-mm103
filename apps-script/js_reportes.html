@@ -1,0 +1,205 @@
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+// MÓDULO js_reportes — Fase 7 (exportar a Excel/PDF) y Fase 8 (dashboard de indicadores)
+
+var REPORTE_OPCIONES_CARGADAS = false;
+
+function cargarReportes_() {
+  if (!REPORTE_OPCIONES_CARGADAS) {
+    google.script.run.withSuccessHandler(function (op) {
+      REPORTE_OPCIONES_CARGADAS = true;
+      var hoy = op.hoy;
+      if (!document.getElementById('rp_desde').value) document.getElementById('rp_desde').value = hoy.substring(0, 8) + '01';
+      if (!document.getElementById('rp_hasta').value) document.getElementById('rp_hasta').value = hoy;
+      document.getElementById('rp_usuario').innerHTML = '<option value="">Todos</option>' + op.usuarios.map(function (u) {
+        return '<option value="' + escapar_(u.id) + '">' + escapar_(u.nombre) + (u.rol ? ' (' + escapar_(u.rol) + ')' : '') + '</option>';
+      }).join('');
+      document.getElementById('rp_area').innerHTML = '<option value="">Todas</option>' + op.areas.map(function (a) {
+        return '<option value="' + escapar_(a) + '">' + escapar_(a) + '</option>';
+      }).join('');
+      actualizarDashboard();
+    }).withFailureHandler(mostrarError).opcionesFiltrosReporte(TOKEN);
+  } else {
+    actualizarDashboard();
+  }
+}
+
+function filtrosReporte_() {
+  return {
+    desde: document.getElementById('rp_desde').value,
+    hasta: document.getElementById('rp_hasta').value,
+    usuario_id: document.getElementById('rp_usuario').value,
+    area: document.getElementById('rp_area').value
+  };
+}
+
+function rangoRapidoReporte(tipo) {
+  var hoy = new Date();
+  var f = function (d) { return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2); };
+  var desde = new Date(hoy), hasta = new Date(hoy);
+  if (tipo === 'semana') { desde.setDate(hoy.getDate() - 6); }
+  else if (tipo === 'mes') { desde = new Date(hoy.getFullYear(), hoy.getMonth(), 1); }
+  else if (tipo === 'mesAnterior') { desde = new Date(hoy.getFullYear(), hoy.getMonth() - 1, 1); hasta = new Date(hoy.getFullYear(), hoy.getMonth(), 0); }
+  else if (tipo === 'anio') { desde = new Date(hoy.getFullYear(), 0, 1); }
+  document.getElementById('rp_desde').value = f(desde);
+  document.getElementById('rp_hasta').value = f(hasta);
+  actualizarDashboard();
+}
+
+function actualizarDashboard() {
+  document.getElementById('rp_contenido').innerHTML = '<p class="pequeno">Calculando indicadores…</p>';
+  google.script.run.withSuccessHandler(pintarDashboard).withFailureHandler(function (err) {
+    document.getElementById('rp_contenido').innerHTML = '';
+    mostrarError(err);
+  }).obtenerDashboard(TOKEN, filtrosReporte_());
+}
+
+function kpiReporte_(titulo, valor, color) {
+  return '<div class="rp-kpi"><div class="rp-kpi-v"' + (color ? ' style="color:' + color + '"' : '') + '>' + escapar_(valor) +
+    '</div><div class="rp-kpi-t">' + escapar_(titulo) + '</div></div>';
+}
+
+function barrasReporte_(titulo, filas, etiqueta, valor, sufijo) {
+  if (!filas.length) return '<h3 class="rp-h3">' + escapar_(titulo) + '</h3><p class="pequeno">Sin datos en el periodo.</p>';
+  var max = Math.max.apply(null, filas.map(function (f) { return Number(f[valor]) || 0; })) || 1;
+  return '<h3 class="rp-h3">' + escapar_(titulo) + '</h3>' + filas.map(function (f) {
+    var v = Number(f[valor]) || 0;
+    return '<div class="rp-barra"><div class="rp-barra-et" title="' + escapar_(f[etiqueta]) + '">' + escapar_(f[etiqueta]) + '</div>' +
+      '<div class="rp-barra-pista"><div class="rp-barra-relleno" style="width:' + Math.max(2, Math.round(v * 100 / max)) + '%"></div></div>' +
+      '<div class="rp-barra-v">' + escapar_(v) + (sufijo || '') + '</div></div>';
+  }).join('');
+}
+
+function pintarDashboard(r) {
+  var s = r.resumen;
+  var html = '<p class="pequeno">Periodo ' + escapar_(r.filtros.desde) + ' al ' + escapar_(r.filtros.hasta) +
+    (r.filtros.usuario ? ' · ' + escapar_(r.filtros.usuario) : '') + (r.filtros.area ? ' · ' + escapar_(r.filtros.area) : '') +
+    ' · actualizado ' + escapar_(r.generado) + '</p>';
+  html += '<div class="rp-kpis">' +
+    kpiReporte_('Trabajos en cola', s.trabajos_total) +
+    kpiReporte_('Completados', s.completadas, '#2e7d32') +
+    kpiReporte_('Cumplimiento', s.cumplimiento_pct + '%', s.cumplimiento_pct >= 90 ? '#2e7d32' : (s.cumplimiento_pct >= 70 ? '#b26a00' : '#c62828')) +
+    kpiReporte_('Saltados', s.saltadas, s.saltadas ? '#c62828' : '') +
+    kpiReporte_('Min. promedio', s.minutos_promedio) +
+    kpiReporte_('Horas trabajadas', Math.round(s.minutos_trabajados / 6) / 10) +
+    kpiReporte_('Tickets', s.tickets_total) +
+    kpiReporte_('Tickets abiertos', s.tickets_abiertos, s.tickets_abiertos ? '#b26a00' : '') +
+    kpiReporte_('Mov. de almacén', s.movimientos_almacen) +
+    kpiReporte_('Lecturas de equipos', s.lecturas_equipos) +
+    '</div>';
+
+  html += '<div class="rp-col2"><div>' +
+    barrasReporte_('Trabajos completados por técnico', r.porTecnico, 'tecnico', 'completadas') +
+    barrasReporte_('Minutos trabajados por técnico', r.porTecnico, 'tecnico', 'minutos', ' min') +
+    '</div><div>' +
+    barrasReporte_('Trabajos por área', r.porArea.slice(0, 10), 'area', 'total') +
+    barrasReporte_('Trabajos que más tiempo consumen', r.porTarea.slice(0, 10), 'trabajo', 'minutos', ' min') +
+    '</div></div>';
+
+  html += '<div class="rp-col2"><div>' +
+    barrasReporte_('Material más utilizado', r.materiales.slice(0, 10), 'material', 'cantidad') +
+    '</div><div>' +
+    barrasReporte_('Completados por día', r.porDia.slice(-15).map(function (d) { return { fecha: d.fecha.substring(5), completadas: d.completadas }; }), 'fecha', 'completadas') +
+    '</div></div>';
+
+  if (r.porTecnico.length) {
+    html += '<h3 class="rp-h3">Detalle por técnico</h3><div style="overflow-x:auto"><table><thead><tr><th>Técnico</th><th>Completados</th><th>Saltados</th><th>Min. trabajados</th><th>Min. promedio</th><th>Min. comida</th></tr></thead><tbody>' +
+      r.porTecnico.map(function (p) {
+        return '<tr><td>' + escapar_(p.tecnico) + '</td><td>' + p.completadas + '</td><td>' + p.saltadas + '</td><td>' + p.minutos + '</td><td>' + p.promedio + '</td><td>' + p.comida + '</td></tr>';
+      }).join('') + '</tbody></table></div>';
+  }
+  document.getElementById('rp_contenido').innerHTML = html;
+}
+
+function descargarBlobReporte_(blob, nombre) {
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url; a.download = nombre; a.style.display = 'none';
+  document.body.appendChild(a); a.click();
+  setTimeout(function () { URL.revokeObjectURL(url); a.remove(); }, 4000);
+}
+
+function base64ABlobReporte_(b64, tipo) {
+  var bin = atob(b64), bytes = new Uint8Array(bin.length);
+  for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return new Blob([bytes], { type: tipo });
+}
+
+function estadoExportacion_(msg, url) {
+  document.getElementById('rp_estado').innerHTML = msg ? '<div class="aviso exito">' + msg +
+    (url ? ' <a href="' + escapar_(url) + '" target="_blank">Abrir copia en Drive</a>' : '') + '</div>' : '';
+}
+
+function exportarReporteExcel() {
+  if (typeof XLSX === 'undefined') { mostrarError('No se pudo cargar el generador de Excel. Revisa tu conexión e inténtalo de nuevo.'); return; }
+  var btn = document.getElementById('rp_btnExcel');
+  btn.disabled = true; btn.textContent = 'Generando Excel…';
+  google.script.run.withSuccessHandler(function (r) {
+    try {
+      var libro = XLSX.utils.book_new();
+      var s = r.resumen;
+      var resumen = [
+        ['Condominio Maestro Meridiano 103 — Reporte de Mantenimiento'],
+        ['Periodo', r.filtros.desde + ' al ' + r.filtros.hasta],
+        ['Técnico', r.filtros.usuario || 'Todos'],
+        ['Área', r.filtros.area || 'Todas'],
+        ['Generado', r.generado],
+        [],
+        ['Indicador', 'Valor'],
+        ['Trabajos en cola', s.trabajos_total], ['Completados', s.completadas], ['Cumplimiento %', s.cumplimiento_pct],
+        ['Saltados con código', s.saltadas], ['No realizadas al cierre del día', s.no_realizadas], ['Pendientes', s.pendientes], ['En proceso', s.en_proceso],
+        ['Minutos trabajados', s.minutos_trabajados], ['Minutos promedio por trabajo', s.minutos_promedio],
+        ['Tickets recibidos', s.tickets_total], ['Tickets atendidos', s.tickets_atendidos], ['Tickets abiertos', s.tickets_abiertos],
+        ['Tickets cancelados', s.tickets_cancelados], ['Tickets urgentes', s.tickets_alta],
+        ['Movimientos de almacén', s.movimientos_almacen], ['Lecturas de equipos', s.lecturas_equipos], ['Minutos de comida', s.minutos_comida],
+        [],
+        ['Técnico', 'Completados', 'Saltados', 'Minutos trabajados', 'Min. promedio', 'Min. comida']
+      ].concat(r.porTecnico.map(function (p) { return [p.tecnico, p.completadas, p.saltadas, p.minutos, p.promedio, p.comida]; }))
+       .concat([[], ['Área', 'Trabajos', 'Completados', 'Minutos']])
+       .concat(r.porArea.map(function (p) { return [p.area, p.total, p.completadas, p.minutos]; }));
+      var hojaResumen = XLSX.utils.aoa_to_sheet(resumen);
+      hojaResumen['!cols'] = [{ wch: 34 }, { wch: 22 }, { wch: 12 }, { wch: 18 }, { wch: 14 }, { wch: 12 }];
+      XLSX.utils.book_append_sheet(libro, hojaResumen, 'Resumen');
+      var usados = { Resumen: true };
+      r.hojas.forEach(function (h) {
+        var nombre = String(h.nombre).replace(/[\\\/\?\*\[\]:]/g, ' ').substring(0, 31);
+        var base = nombre, n = 2;
+        while (usados[nombre]) { nombre = base.substring(0, 28) + ' ' + n++; }
+        usados[nombre] = true;
+        var ws = XLSX.utils.aoa_to_sheet([h.columnas].concat(h.filas));
+        ws['!cols'] = h.columnas.map(function (c) { return { wch: Math.min(45, Math.max(12, String(c).length + 2)) }; });
+        if (h.filas.length) ws['!autofilter'] = { ref: XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: h.filas.length, c: h.columnas.length - 1 } }) };
+        XLSX.utils.book_append_sheet(libro, ws, nombre);
+      });
+      var nombreArchivo = 'Reporte Mantenimiento MM103 ' + r.filtros.desde + ' a ' + r.filtros.hasta + '.xlsx';
+      var b64 = XLSX.write(libro, { bookType: 'xlsx', type: 'base64' });
+      descargarBlobReporte_(base64ABlobReporte_(b64, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'), nombreArchivo);
+      estadoExportacion_('Excel generado. Guardando copia en Drive…');
+      google.script.run.withSuccessHandler(function (res) {
+        estadoExportacion_('Excel descargado y archivado en Drive (carpeta "MM103 - Reportes de Mantenimiento").', res.url);
+      }).withFailureHandler(function () {
+        estadoExportacion_('Excel descargado. No se pudo guardar la copia en Drive.');
+      }).guardarExcelReporteEnDrive(TOKEN, b64, nombreArchivo);
+    } catch (e) {
+      mostrarError('Error al armar el Excel: ' + e.message);
+    }
+    btn.disabled = false; btn.textContent = '⬇ Descargar Excel';
+  }).withFailureHandler(function (err) {
+    btn.disabled = false; btn.textContent = '⬇ Descargar Excel';
+    mostrarError(err);
+  }).obtenerDatosReporteExcel(TOKEN, filtrosReporte_());
+}
+
+function exportarReportePdf() {
+  var btn = document.getElementById('rp_btnPdf');
+  btn.disabled = true; btn.textContent = 'Generando PDF…';
+  google.script.run.withSuccessHandler(function (res) {
+    btn.disabled = false; btn.textContent = '⬇ Descargar PDF';
+    descargarBlobReporte_(base64ABlobReporte_(res.base64, 'application/pdf'), res.nombre);
+    estadoExportacion_('PDF descargado' + (res.url ? ' y archivado en Drive (carpeta "MM103 - Reportes de Mantenimiento").' : '.'), res.url);
+  }).withFailureHandler(function (err) {
+    btn.disabled = false; btn.textContent = '⬇ Descargar PDF';
+    mostrarError(err);
+  }).generarReportePdf(TOKEN, filtrosReporte_());
+}
+</script>

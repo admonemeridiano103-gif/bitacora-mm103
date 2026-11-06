@@ -1,0 +1,215 @@
+<script>
+// MÓDULO js_gas — Control de cierre/apertura de gas: pantalla del administrador y recorrido del técnico
+
+var GAS_ESTADO = { vista: null, claveProrroga: '', registroId: '', tarea: null };
+
+function gasEtiquetaUnidad_(torre, depto) {
+  return torre === 'D' ? ('Local ' + (depto || '')) : ('Torre ' + (torre || '') + ' · ' + (depto || ''));
+}
+
+function dineroGas_(n) {
+  return '$' + (Number(n) || 0).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+// ---------------------------------------------------------------------------
+// Administrador (permiso CONTROL_CIERRE_GAS)
+// ---------------------------------------------------------------------------
+
+function cargarGasAdmin() {
+  google.script.run.withSuccessHandler(pintarGasAdmin).withFailureHandler(mostrarError).listarReporteGas(TOKEN);
+}
+
+function pintarGasAdmin(v) {
+  GAS_ESTADO.vista = v;
+  document.getElementById('gas_minimo').value = v.minimo;
+  document.getElementById('gas_resumen').textContent = v.filas.length
+    ? 'Reporte del ' + (v.fecha_carga || '—') + ' · ' + v.filas.length + ' departamentos · ' + v.pendientes + ' con acción pendiente para el técnico.'
+    : 'Todavía no hay reporte cargado. Sube el Excel de morosidad de YAU.';
+  var cuerpo = v.filas.map(function (f) {
+    var estadoHtml = f.accion === 'Cerrar' ? '<span class="badge inactivo">Cerrar</span>' : (f.accion === 'Abrir' ? '<span class="badge activo">Abrir</span>' : '<span class="pequeno">Sin cambio</span>');
+    var detalle = f.estado_gas === 'Cerrado' ? ' (gas cerrado)' : '';
+    var prorroga = '';
+    var botones = '<button class="secundario" onclick="abrirProrrogaGasUI(\'' + escapar_(f.clave) + '\')">' + (f.prorroga ? 'Editar prórroga' : 'Agregar prórroga') + '</button>';
+    if (f.prorroga) {
+      prorroga = f.prorroga.vigente
+        ? 'prórroga hasta ' + escapar_(f.prorroga.fecha_limite) + '<br><span class="pequeno">' + escapar_(f.prorroga.motivo) + ' · autorizó ' + escapar_(f.prorroga.autorizo) + '</span>'
+        : 'prórroga vencida (' + escapar_(f.prorroga.fecha_limite) + ')';
+      botones += ' <button class="peligro" onclick="quitarProrrogaGasUI(\'' + escapar_(f.clave) + '\')">Quitar prórroga</button>';
+    }
+    var etiquetaUnidad = escapar_(gasEtiquetaUnidad_(f.torre, f.departamento));
+    return '<tr>' +
+      '<td>' + etiquetaUnidad + '</td>' +
+      '<td>' + escapar_(f.alias) + '</td>' +
+      '<td>' + escapar_(f.quien_debe || '—') + '</td>' +
+      '<td>' + dineroGas_(f.monto_total) + '</td>' +
+      '<td>' + estadoHtml + escapar_(detalle) + '</td>' +
+      '<td>' + prorroga + '</td>' +
+      '<td>' + botones + '</td>' +
+      '</tr>';
+  }).join('');
+  document.getElementById('gas_tbody').innerHTML = cuerpo || '<tr><td colspan="7" class="pequeno">Sin departamentos.</td></tr>';
+}
+
+function guardarMontoMinimoGasUI() {
+  var monto = document.getElementById('gas_minimo').value;
+  google.script.run
+    .withSuccessHandler(function (v) { mostrarExito('Monto mínimo guardado.'); pintarGasAdmin(v); })
+    .withFailureHandler(mostrarError)
+    .guardarMontoMinimoGas(TOKEN, monto);
+}
+
+function cargarLibreriaXlsxGas_(ok, error) {
+  if (window.XLSX) { ok(); return; }
+  var s = document.createElement('script');
+  s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+  s.onload = ok;
+  s.onerror = function () { error('No se pudo cargar el lector de Excel. Revisa tu conexión a internet.'); };
+  document.head.appendChild(s);
+}
+
+/** Lee la primera hoja del Excel, busca el renglón de encabezados (el que trae "Dirección") y arma objetos por columna. */
+function leerFilasReporteGas_(buffer) {
+  var libro = XLSX.read(buffer, { type: 'array' });
+  var hoja = libro.Sheets[libro.SheetNames[0]];
+  var matriz = XLSX.utils.sheet_to_json(hoja, { header: 1, defval: '' });
+  var idx = -1;
+  for (var i = 0; i < matriz.length && i < 30; i++) {
+    var hay = matriz[i].some(function (c) { return String(c).toLowerCase().replace(/[^a-z]/g, '').indexOf('direcci') === 0; });
+    if (hay) { idx = i; break; }
+  }
+  if (idx < 0) throw new Error('No encontré la columna "Dirección" en el archivo.');
+  var encabezados = matriz[idx].map(function (c) { return String(c); });
+  var filas = [];
+  for (var r = idx + 1; r < matriz.length; r++) {
+    var obj = {};
+    var vacia = true;
+    encabezados.forEach(function (h, k) {
+      if (!h) return;
+      obj[h] = matriz[r][k];
+      if (matriz[r][k] !== '' && matriz[r][k] !== undefined) vacia = false;
+    });
+    if (!vacia) filas.push(obj);
+  }
+  return filas;
+}
+
+function cargarReporteGasUI() {
+  var archivo = document.getElementById('gas_archivo').files[0];
+  if (!archivo) { mostrarError('Elige primero el archivo Excel del reporte de morosidad.'); return; }
+  if (!confirm('Esto reemplaza el reporte de morosidad del mes en curso (se conservan las prórrogas y el estado del gas de cada departamento). ¿Continuar?')) return;
+  var aviso = document.getElementById('gas_aviso');
+  aviso.textContent = 'Leyendo el archivo…';
+  var lector = new FileReader();
+  lector.onload = function (e) {
+    cargarLibreriaXlsxGas_(function () {
+      var filas;
+      try { filas = leerFilasReporteGas_(e.target.result); } catch (err) { aviso.textContent = ''; mostrarError(err.message || String(err)); return; }
+      aviso.textContent = 'Enviando ' + filas.length + ' filas…';
+      google.script.run
+        .withSuccessHandler(function (v) {
+          var texto = 'Reporte cargado: ' + v.filas.length + ' departamentos.';
+          if (v.total_ignoradas) texto += ' ' + v.total_ignoradas + ' fila(s) sin formato de departamento se ignoraron: ' + v.ignoradas.join(' | ');
+          aviso.textContent = texto;
+          document.getElementById('gas_archivo').value = '';
+          mostrarExito('Reporte de morosidad cargado.');
+          pintarGasAdmin(v);
+        })
+        .withFailureHandler(function (err) { aviso.textContent = ''; mostrarError(err); })
+        .cargarReporteMorosidad(TOKEN, filas);
+    }, function (msg) { aviso.textContent = ''; mostrarError(msg); });
+  };
+  lector.onerror = function () { aviso.textContent = ''; mostrarError('No se pudo leer el archivo.'); };
+  lector.readAsArrayBuffer(archivo);
+}
+
+function abrirProrrogaGasUI(clave) {
+  var f = (GAS_ESTADO.vista ? GAS_ESTADO.vista.filas : []).filter(function (x) { return x.clave === clave; })[0] || {};
+  GAS_ESTADO.claveProrroga = clave;
+  document.getElementById('gas_prorroga_titulo').textContent = 'Prórroga · ' + gasEtiquetaUnidad_(f.torre, f.departamento);
+  document.getElementById('gp_motivo').value = f.prorroga ? f.prorroga.motivo : '';
+  document.getElementById('gp_autorizo').value = f.prorroga ? f.prorroga.autorizo : '';
+  document.getElementById('gp_fecha').value = f.prorroga ? f.prorroga.fecha_limite : '';
+  document.getElementById('gas_form_prorroga').classList.remove('oculto');
+  document.getElementById('gas_form_prorroga').scrollIntoView({ behavior: 'smooth' });
+}
+
+function cerrarProrrogaGasUI() {
+  document.getElementById('gas_form_prorroga').classList.add('oculto');
+}
+
+function guardarProrrogaGasUI() {
+  google.script.run
+    .withSuccessHandler(function (v) { mostrarExito('Prórroga guardada.'); cerrarProrrogaGasUI(); pintarGasAdmin(v); })
+    .withFailureHandler(mostrarError)
+    .guardarProrrogaGas(TOKEN, GAS_ESTADO.claveProrroga, document.getElementById('gp_motivo').value, document.getElementById('gp_autorizo').value, document.getElementById('gp_fecha').value);
+}
+
+function quitarProrrogaGasUI(clave) {
+  if (!confirm('¿Quitar la prórroga de este departamento?')) return;
+  google.script.run
+    .withSuccessHandler(function (v) { mostrarExito('Prórroga quitada.'); pintarGasAdmin(v); })
+    .withFailureHandler(mostrarError)
+    .quitarProrrogaGas(TOKEN, clave);
+}
+
+// ---------------------------------------------------------------------------
+// Técnico: recorrido en orden, foto obligatoria por departamento (sin montos ni nombres)
+// ---------------------------------------------------------------------------
+
+function abrirTareaGas(registroId) {
+  GAS_ESTADO.registroId = registroId;
+  mostrarSeccion('tarjetaGasTecnico');
+  google.script.run.withSuccessHandler(pintarGasTecnico).withFailureHandler(mostrarError).obtenerTareaGas(TOKEN, registroId);
+}
+
+function pintarGasTecnico(t) {
+  GAS_ESTADO.tarea = t;
+  document.getElementById('gast_avance').textContent = t.hechos + ' de ' + t.total + ' departamentos listos.';
+  var actual = (t.items || []).filter(function (x) { return x.clave === t.siguiente; })[0];
+  var zona = document.getElementById('gast_actual');
+  if (actual) {
+    var verbo = actual.accion === 'Cerrar' ? 'CERRAR el gas' : 'ABRIR el gas';
+    zona.innerHTML =
+      '<div class="tarjeta" style="border:2px solid #0b5fa5">' +
+      '<h3>' + escapar_(gasEtiquetaUnidad_(actual.torre, actual.departamento)) + '</h3>' +
+      '<p><strong>' + verbo + '</strong></p>' +
+      '<p class="pequeno">Toma la foto de evidencia y confirma. No puedes pasar al siguiente sin la foto.</p>' +
+      '<input type="file" id="gast_foto" accept="image/*" capture="environment">' +
+      '<div class="fila-botones"><button class="exito" id="gast_confirmar" onclick="confirmarAccionGasUI(\'' + escapar_(actual.clave) + '\')">Confirmar ' + (actual.accion === 'Cerrar' ? 'cierre' : 'apertura') + '</button></div>' +
+      '</div>';
+  } else {
+    zona.innerHTML =
+      '<p><strong>Todos los departamentos están listos.</strong></p>' +
+      '<div class="fila-botones"><button class="exito" onclick="terminarTareaGasUI()">Terminar tarea de gas</button></div>';
+  }
+  document.getElementById('gast_lista').innerHTML = '<ul>' + (t.items || []).map(function (x) {
+    var marca = x.hecho ? '✅' : (x.clave === t.siguiente ? '👉' : '⏳');
+    return '<li>' + marca + ' ' + escapar_(gasEtiquetaUnidad_(x.torre, x.departamento)) + ' — ' + (x.accion === 'Cerrar' ? 'Cerrar' : 'Abrir') + '</li>';
+  }).join('') + '</ul>';
+}
+
+function confirmarAccionGasUI(clave) {
+  var input = document.getElementById('gast_foto');
+  var archivo = input && input.files[0];
+  if (!archivo) { mostrarError('Toma la foto de evidencia de este departamento antes de confirmar.'); return; }
+  var boton = document.getElementById('gast_confirmar');
+  if (boton) { boton.disabled = true; boton.textContent = 'Guardando…'; }
+  comprimirImagenParaSubir_(archivo, function (base64, mime, nombre) {
+    google.script.run
+      .withSuccessHandler(function (t) { mostrarExito('Departamento registrado.'); pintarGasTecnico(t); })
+      .withFailureHandler(function (e) { if (boton) { boton.disabled = false; boton.textContent = 'Confirmar'; } mostrarError(e); })
+      .registrarAccionGas(TOKEN, GAS_ESTADO.registroId, clave, base64, mime, nombre);
+  }, function (e) { if (boton) { boton.disabled = false; boton.textContent = 'Confirmar'; } mostrarError(e); });
+}
+
+function terminarTareaGasUI() {
+  google.script.run
+    .withSuccessHandler(function (r) {
+      mostrarExito('Tarea de gas completada.');
+      mostrarSeccion('tarjetaColaHoy');
+      if (r && r.cola) pintarColaHoy(r.cola);
+    })
+    .withFailureHandler(mostrarError)
+    .completarTarea(TOKEN, GAS_ESTADO.registroId, '', [], null, null);
+}
+</script>

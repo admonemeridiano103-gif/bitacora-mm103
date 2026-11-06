@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html>
+<head>
+<base target="_top">
+<meta charset="utf-8">
+<?!= incluir_('estilos'); ?>
+</head>
+<body>
+
+
+
+<header>
+<h1>Bitácora de Mantenimiento MM103</h1>
+<p>Condominio Maestro Meridiano 103 — Bloque 1: modelo de datos y usuarios</p>
+</header>
+
+<div class="contenedor">
+
+<div id="cargando">Verificando tu acceso…</div>
+
+<div id="pantallaLogin" class="pantalla-acceso oculto">
+<div class="caja-acceso">
+<div class="logo">M103</div>
+<h1>Bitácora de Mantenimiento</h1>
+<p class="sub">Condominio Maestro Meridiano 103</p>
+<div id="avisoLogin"></div>
+<form class="formulario-simple" onsubmit="return false;">
+<div>
+<label>Usuario</label>
+<input type="text" id="li_usuario" autocomplete="username" placeholder="tu.usuario">
+</div>
+<div>
+<label>Contraseña</label>
+<input type="password" id="li_password" autocomplete="current-password" placeholder="••••••••">
+<label class="pequeno" style="display:block;margin-top:4px;cursor:pointer;"><input type="checkbox" onchange="document.getElementById('li_password').type=this.checked?'text':'password'" style="vertical-align:middle;margin-right:4px;">Mostrar contraseña</label>
+</div>
+<button class="primario" onclick="hacerLogin()" style="padding:13px;">Entrar</button>
+</form>
+<div class="enlaces-acceso">
+<button class="enlace" onclick="mostrarActivar()">Primera vez aquí — activar mi cuenta</button>
+<button class="enlace" onclick="mostrarRecuperar()">Olvidé mi contraseña</button>
+</div>
+</div>
+</div>
+
+<div id="pantallaActivar" class="pantalla-acceso oculto">
+<div class="caja-acceso">
+<h1>Activar mi cuenta</h1>
+<p class="sub">Solo si un administrador ya te dio de alta con tu correo.</p>
+<div id="avisoActivar"></div>
+
+<div id="activarPaso1">
+<p class="paso-indicador">Paso 1 de 2 — confirma tu correo</p>
+<form class="formulario-simple" onsubmit="return false;">
+<div>
+<label>Correo con el que te dieron de alta</label>
+<input type="email" id="ac_correo" autocomplete="email" placeholder="correo@ejemplo.com">
+</div>
+<button class="primario" onclick="pedirCodigoActivar()" style="padding:13px;">Enviarme un código</button>
+</form>
+</div>
+
+<div id="activarPaso2" class="oculto">
+<p class="paso-indicador">Paso 2 de 2 — crea tu acceso</p>
+<form class="formulario-simple" onsubmit="return false;">
+<div>
+<label>Código que recibiste por correo</label>
+<input type="text" id="ac_codigo" inputmode="numeric" placeholder="123456">
+</div>
+<div>
+<label>Elige tu usuario</label>
+<input type="text" id="ac_usuario" autocomplete="username" placeholder="ej. jgutierrez">
+</div>
+<div>
+<label>Elige tu contraseña (mínimo 8 caracteres)</label>
+<input type="password" id="ac_password" autocomplete="new-password" placeholder="••••••••">
+<label class="pequeno" style="display:block;margin-top:4px;cursor:pointer;"><input type="checkbox" onchange="document.getElementById('ac_password').type=this.checked?'text':'password'" style="vertical-align:middle;margin-right:4px;">Mostrar contraseña</label>
+</div>
+<button class="primario" onclick="confirmarActivar()" style="padding:13px;">Crear mi acceso y entrar</button>
+</form>
+</div>
+
+<div class="enlaces-acceso">
+<button class="enlace" onclick="mostrarLogin()">Volver a iniciar sesión</button>
+</div>
+</div>
+</div>
+
+<div id="pantallaRecuperar" class="pantalla-acceso oculto">
+<div class="caja-acceso">
+<h1>Recuperar contraseña</h1>
+<p class="sub">Te mandamos un código a tu correo dado de alta.</p>
+<div id="avisoRecuperar"></div>
+
+<div id="recuperarPaso1">
+<p class="paso-indicador">Paso 1 de 2 — confirma tu correo</p>
+<form class="formulario-simple" onsubmit="return false;">
+<div>
+<label>Tu correo o usuario dado de alta</label>
+<input type="text" id="re_correo" autocomplete="username" placeholder="correo@ejemplo.com o tu.usuario">
+</div>
+<button class="primario" onclick="pedirCodigoRecuperar()" style="padding:13px;">Enviarme un código</button>
+</form>
+</div>
+
+<div id="recuperarPaso2" class="oculto">
+<p class="paso-indicador">Paso 2 de 2 — nueva contraseña</p>
+<form class="formulario-simple" onsubmit="return false;">
+<div>
+<label>Código que recibiste por correo</label>
+<input type="text" id="re_codigo" inputmode="numeric" placeholder="123456">
+</div>
+<div>
+<label>Nueva contraseña (mínimo 8 caracteres)</label>
+<input type="password" id="re_password" autocomplete="new-password" placeholder="••••••••">
+<label class="pequeno" style="display:block;margin-top:4px;cursor:pointer;"><input type="checkbox" onchange="document.getElementById('re_password').type=this.checked?'text':'password'" style="vertical-align:middle;margin-right:4px;">Mostrar contraseña</label>
+</div>
+<button class="primario" onclick="confirmarRecuperar()" style="padding:13px;">Cambiar contraseña</button>
+</form>
+</div>
+
+<div class="enlaces-acceso">
+<button class="enlace" onclick="mostrarLogin()">Volver a iniciar sesión</button>
+</div>
+</div>
+</div>
+
+<div id="sinAcceso" class="oculto">
+<div class="tarjeta">
+<div class="aviso error" id="mensajeSinAcceso"></div>
+</div>
+</div>
+
+<div id="panel" class="oculto">
+
+<div class="tarjeta">
+<div class="top-derecha">
+<div>
+<strong id="saludo"></strong>
+<div class="pequeno" id="detalleUsuario"></div>
+</div>
+<span class="pequeno">Rol: <span id="rolActual"></span></span>
+<button class="secundario" onclick="cerrarSesionClick()">Salir</button>
+</div>
+</div>
+
+<div id="avisoGeneral"></div>
+
+<div id="botonVolverMenu" class="oculto" style="margin-bottom:16px;">
+<button class="secundario" onclick="mostrarMenuPrincipal()">&larr; Menú principal</button>
+</div>
+
+<div class="tarjeta" id="menuPrincipal">
+<h2>Menú principal</h2>
+<p class="pequeno">Elige una sección para verla.</p>
+<div id="avisoRecordatorios"></div>
+<div class="cuadricula-menu">
+<button class="boton-menu" id="menuBtnMiCuenta" onclick="mostrarSeccion('tarjetaMiCuenta')">
+<span class="boton-menu-icono">👤</span><span>Mi cuenta</span>
+</button>
+<button class="boton-menu oculto" id="menuBtnUsuarios" onclick="mostrarSeccion('tarjetaUsuarios')">
+<span class="boton-menu-icono">👥</span><span>Usuarios</span>
+</button>
+<button class="boton-menu oculto" id="menuBtnPermisos" onclick="mostrarSeccion('tarjetaPermisos')">
+<span class="boton-menu-icono">🔐</span><span>Permisos</span>
+</button>
+<button class="boton-menu oculto" id="menuBtnHorarios" onclick="mostrarSeccion('tarjetaHorarios')">
+<span class="boton-menu-icono">🕑</span><span>Horarios</span>
+</button>
+<button class="boton-menu oculto" id="menuBtnAuditoria" onclick="mostrarSeccion('tarjetaAuditoria')">
+<span class="boton-menu-icono">📋</span><span>Auditoría</span>
+</button>
+<button class="boton-menu oculto" id="menuBtnCatalogoTareas" onclick="mostrarSeccion('tarjetaCatalogoTareas')">
+<span class="boton-menu-icono">📆</span><span>Catálogo de tareas diarias</span>
+</button>
+<button class="boton-menu oculto" id="menuBtnTrabajosExtra" onclick="mostrarSeccion('tarjetaTrabajosExtra')">
+<span class="boton-menu-icono">🛠️</span><span>Trabajos programados</span>
+</button>
+<button class="boton-menu oculto" id="menuBtnGas" onclick="mostrarSeccion('tarjetaGasAdmin')">
+<span class="boton-menu-icono">🔥</span><span>Control de gas</span>
+</button>
+<button class="boton-menu oculto" id="menuBtnColaHoy" onclick="mostrarSeccion('tarjetaColaHoy')">
+<span class="boton-menu-icono">✅</span><span>Cola de trabajo de hoy</span>
+</button>
+<button class="boton-menu oculto" id="menuBtnChecklistEquipos" onclick="mostrarSeccion('tarjetaChecklistEquipos')">
+<span class="boton-menu-icono">⚙️</span><span>Checklist de equipos</span>
+</button>
+<button class="boton-menu oculto" id="menuBtnAlmacen" onclick="mostrarSeccion('tarjetaAlmacen')">
+<span class="boton-menu-icono">📦</span><span>Almacén</span>
+</button>
+<button class="boton-menu oculto" id="menuBtnTickets" onclick="mostrarSeccion('tarjetaTickets')">
+<span class="boton-menu-icono">🎫</span><span>Tickets e indicaciones</span>
+</button>
+<button class="boton-menu oculto" id="menuBtnComida" onclick="mostrarSeccion('tarjetaComida')">
+<span class="boton-menu-icono">🍽️</span><span>Mi comida</span>
+</button>
+<button class="boton-menu oculto" id="menuBtnReportes" onclick="mostrarSeccion('tarjetaReportes')">
+<span class="boton-menu-icono">📊</span><span>Reportes e indicadores</span>
+</button>
+</div>
+</div>
+
+<div class="tarjeta oculto" id="tarjetaMiCuenta">
+<h2>Mi cuenta</h2>
+<p class="pequeno">Puedes cambiar tu usuario o tu contraseña cuando quieras, sin pedirle nada a un administrador.</p>
+<div id="avisoCuenta"></div>
+<form class="formulario" onsubmit="return false;" style="margin-bottom:14px;">
+<div>
+<label>Cambiar mi usuario</label>
+<input type="text" id="mc_nuevo_usuario" placeholder="nuevo.usuario">
+</div>
+<button class="secundario" onclick="guardarMiUsuario()">Actualizar usuario</button>
+</form>
+<form class="formulario" onsubmit="return false;">
+<div>
+<label>Contraseña actual</label>
+<input type="password" id="mc_password_actual" autocomplete="current-password">
+<label class="pequeno" style="display:block;margin-top:4px;cursor:pointer;"><input type="checkbox" onchange="document.getElementById('mc_password_actual').type=this.checked?'text':'password'" style="vertical-align:middle;margin-right:4px;">Mostrar contraseña</label>
+</div>
+<div>
+<label>Nueva contraseña</label>
+<input type="password" id="mc_password_nueva" autocomplete="new-password">
+<label class="pequeno" style="display:block;margin-top:4px;cursor:pointer;"><input type="checkbox" onchange="document.getElementById('mc_password_nueva').type=this.checked?'text':'password'" style="vertical-align:middle;margin-right:4px;">Mostrar contraseña</label>
+</div>
+<button class="secundario" onclick="guardarMiPassword()">Actualizar contraseña</button>
+</form>
+</div>
+
+<!-- USUARIOS -->
+<div class="tarjeta oculto" id="tarjetaUsuarios">
+<h2>Usuarios</h2>
+<table>
+<thead>
+<tr>
+<th>ID</th><th>Nombre</th><th>Correo</th><th>Usuario</th><th>Rol</th><th>Código</th>
+<th>Estado</th><th>Horario</th><th>Acciones</th>
+</tr>
+</thead>
+<tbody id="tbodyUsuarios"></tbody>
+</table>
+</div>
+
+<!-- ALTA / EDICIÓN DE USUARIO -->
+<div class="tarjeta oculto" id="tarjetaAltaUsuarios">
+<h2 id="tituloFormularioUsuario">Dar de alta usuario</h2>
+<form class="formulario" id="formUsuario" onsubmit="return false;">
+<input type="hidden" id="fu_id_usuario">
+<div>
+<label>Nombre completo</label>
+<input type="text" id="fu_nombre" placeholder="Nombre y apellidos">
+</div>
+<div>
+<label>Correo</label>
+<input type="email" id="fu_correo" placeholder="correo@gmail.com">
+</div>
+<div>
+<label>Usuario (nombre de acceso)</label>
+<input type="text" id="fu_usuario" placeholder="ej. jgutierrez">
+<p class="pequeno">Solo aplica si la persona ya activó su cuenta. Para un usuario nuevo, déjalo en blanco — lo elige él mismo al activar su cuenta.</p>
+</div>
+<div>
+<label>Rol</label>
+<select id="fu_rol"></select>
+</div>
+<div>
+<label>Teléfono (opcional)</label>
+<input type="text" id="fu_telefono">
+</div>
+<div>
+<label>Horario (opcional)</label>
+<select id="fu_horario"><option value="">— Sin asignar —</option></select>
+</div>
+<div>
+<label>Notas (opcional)</label>
+<input type="text" id="fu_notas">
+</div>
+<div class="fila-botones">
+<button class="primario" onclick="guardarUsuario()">Guardar</button>
+<button class="secundario" onclick="cerrarFormularioUsuario()">Cancelar</button>
+</div>
+</form>
+</div>
+
+<!-- MATRIZ DE PERMISOS -->
+<div class="tarjeta oculto" id="tarjetaPermisos">
+<h2>Matriz de permisos por rol</h2>
+<p class="pequeno">Editable en vivo. Un cambio aquí aplica de inmediato a todos los usuarios de ese rol. Cada fila es un rol; los encabezados y la columna de rol quedan fijos al desplazarte.</p>
+<div class="tabla-sticky-wrap">
+<table id="tablaPermisos"></table>
+</div>
+</div>
+
+<!-- HORARIOS -->
+<div class="tarjeta oculto" id="tarjetaHorarios">
+<h2>Horarios configurados</h2>
+<table>
+<thead>
+<tr><th>ID</th><th>Nombre</th><th>Días</th><th>Entrada</th><th>Salida</th><th>Activo</th></tr>
+</thead>
+<tbody id="tbodyHorarios"></tbody>
+</table>
+</div>
+
+<!-- AUDITORÍA -->
+<div class="tarjeta oculto" id="tarjetaAuditoria">
+<h2>Últimos movimientos (auditoría)</h2>
+<div style="overflow-x:auto">
+<table>
+<thead>
+<tr><th>Fecha</th><th>Quién</th><th>Acción</th><th>Entidad</th><th>Antes</th><th>Después</th></tr>
+</thead>
+<tbody id="tbodyAuditoria"></tbody>
+</table>
+</div>
+</div>
+<!-- BLOQUE 2: CATALOGO DE TAREAS DIARIAS -->
+<div class="tarjeta oculto" id="tarjetaCatalogoTareas">
+<h2>Catálogo de tareas diarias</h2>
+<table>
+<thead>
+<tr><th>Orden</th><th>Tarea</th><th>Tipo</th><th>Área/Equipo</th><th>Pasos</th><th>Activa</th><th></th></tr>
+</thead>
+<tbody id="tbodyCatalogoTareas"></tbody>
+</table>
+</div>
+
+<div class="tarjeta oculto" id="tarjetaFormTarea">
+<h2 id="tituloFormularioTarea">Nueva tarea diaria</h2>
+<form class="formulario" id="formTarea" onsubmit="return false;">
+<input type="hidden" id="ft_tarea_id">
+<div>
+<label>Nombre de la tarea</label>
+<input type="text" id="ft_nombre" placeholder="Ej. Revisión de área de albercas">
+</div>
+<div>
+<label>Tipo (opcional)</label>
+<input type="text" id="ft_tipo" placeholder="Ej. Limpieza, revisión...">
+</div>
+<div>
+<label>Área o equipo asociado (opcional)</label>
+<input type="text" id="ft_area">
+</div>
+<div>
+<label>Vincular con checklist de equipos</label>
+<input type="hidden" id="ft_equipos"><div id="ft_equipos_box"></div>
+<p class="pequeno">Marca exactamente los equipos que cubre esta tarea: el técnico registra sus lecturas en el checklist y la tarea se cierra sola al terminar. Sin marcar ninguno, es una tarea normal que se cierra con foto.</p>
+</div>
+<div>
+<label>Orden en la cola</label>
+<input type="number" id="ft_orden">
+</div>
+<div>
+<label>¿Tiene pasos definidos?</label>
+<select id="ft_requiere_pasos"><option value="false">No</option><option value="true">Sí</option></select>
+</div>
+<div>
+<label>Activa</label>
+<select id="ft_activo"><option value="true">Sí</option><option value="false">No</option></select>
+</div>
+<div>
+<label>Notas (opcional)</label>
+<input type="text" id="ft_notas">
+</div>
+<div class="fila-botones">
+<button class="primario" onclick="guardarTareaUI()">Guardar</button>
+<button class="secundario" onclick="cerrarFormularioTarea()">Cancelar</button>
+</div>
+</form>
+
+<div id="detalleTareaPasosMateriales" class="oculto" style="margin-top:18px;border-top:1px solid var(--borde);padding-top:14px;">
+<h2 style="font-size:14px;">Pasos de la tarea</h2>
+<table>
+<thead><tr><th>Orden</th><th>Nombre</th><th>Descripción</th><th></th></tr></thead>
+<tbody id="tbodyPasosTarea"></tbody>
+</table>
+<form class="formulario" id="formPaso" onsubmit="return false;" style="margin-top:10px;">
+<input type="hidden" id="fp_paso_id">
+<div><label>Orden</label><input type="number" id="fp_orden"></div>
+<div><label>Nombre del paso</label><input type="text" id="fp_nombre"></div>
+<div><label>Descripción (opcional)</label><input type="text" id="fp_descripcion"></div>
+<div class="fila-botones"><button class="secundario" onclick="guardarPasoUI()">+ Agregar paso</button></div>
+</form>
+
+<h2 style="font-size:14px;margin-top:18px;">Materiales de la tarea</h2>
+<table>
+<thead><tr><th>Material</th><th>Cantidad</th><th>Unidad</th><th></th></tr></thead>
+<tbody id="tbodyMaterialesTarea"></tbody>
+</table>
+<form class="formulario" id="formMaterial" onsubmit="return false;" style="margin-top:10px;">
+<input type="hidden" id="fm_relacion_id">
+<div><label>Material</label><input type="text" id="fm_material"></div>
+<div><label>Cantidad</label><input type="text" id="fm_cantidad"></div>
+<div><label>Unidad</label><input type="text" id="fm_unidad"></div>
+<div class="fila-botones"><button class="secundario" onclick="guardarMaterialUI()">+ Agregar material</button></div>
+</form>
+</div>
+</div>
+
+<!-- BLOQUE 2: TRABAJOS EXTRA -->
+<div class="tarjeta oculto" id="tarjetaTrabajosExtra">
+<h2>Trabajos programados</h2>
+<table>
+<thead>
+<tr><th>Fecha</th><th>Descripción</th><th>Prioridad</th><th>Asignado</th><th>Estado</th><th></th></tr>
+</thead>
+<tbody id="tbodyTrabajosExtra"></tbody>
+</table>
+</div>
+
+<div class="tarjeta oculto" id="tarjetaFormTrabajoExtra">
+<h2>Nuevo trabajo programado</h2>
+<form class="formulario" id="formTrabajoExtra" onsubmit="return false;">
+<div><label>Descripción</label><input type="text" id="fe_descripcion"></div>
+<div><label>Origen (opcional)</label><input type="text" id="fe_origen" placeholder="Ej. Solicitud de residente"></div>
+<div><label>Fecha programada (opcional)</label><input type="date" id="fe_fecha"></div>
+<div><label>Hora programada (opcional)</label><input type="time" id="fe_hora"></div>
+<div>
+<label>Tipo de trabajo</label>
+<select id="fe_tipo" onchange="cambiarTipoTrabajoExtraUI()"><option value="">Tarea genérica</option><option value="Gas">Cierre/Apertura de gas</option><option value="Checklist">Checklist de equipos</option></select>
+<p class="pequeno" id="fe_tipo_ayuda"></p>
+</div>
+<div id="fe_equipos_fila" class="oculto">
+<label>Equipos del checklist</label>
+<input type="hidden" id="fe_equipos"><div id="fe_equipos_box"></div>
+</div>
+<div>
+<label>Prioridad</label>
+<select id="fe_prioridad"><option>Normal</option><option>Alta</option><option>Urgente</option></select>
+</div>
+<div><label>Asignar a (id de usuario, opcional)</label><input type="text" id="fe_asignado" placeholder="Ej. USR-002"></div>
+<div class="fila-botones">
+<button class="primario" onclick="guardarTrabajoExtraUI()">Guardar</button>
+<button class="secundario" onclick="cerrarFormularioTrabajoExtra()">Cancelar</button>
+</div>
+</form>
+</div>
+
+<!-- CONTROL DE CIERRE/APERTURA DE GAS -->
+<div class="tarjeta oculto" id="tarjetaGasAdmin">
+<h2>Control de cierre/apertura de gas</h2>
+<p class="pequeno" id="gas_resumen"></p>
+<div class="formulario">
+<div><label>Monto mínimo para cierre ($)</label><input type="number" id="gas_minimo" min="0"></div>
+<div class="fila-botones"><button class="secundario" onclick="guardarMontoMinimoGasUI()">Guardar monto mínimo</button></div>
+<div><label>Reporte de morosidad de YAU (Excel)</label><input type="file" id="gas_archivo" accept=".xlsx,.xls,.csv"></div>
+<div class="fila-botones"><button class="primario" onclick="cargarReporteGasUI()">Cargar reporte (reemplaza el del mes en curso)</button></div>
+</div>
+<div id="gas_aviso" class="pequeno"></div>
+<div id="gas_form_prorroga" class="oculto formulario">
+<h3 id="gas_prorroga_titulo">Prórroga</h3>
+<div><label>Motivo</label><input type="text" id="gp_motivo"></div>
+<div><label>Quién autorizó</label><input type="text" id="gp_autorizo"></div>
+<div><label>Fecha límite</label><input type="date" id="gp_fecha"></div>
+<div class="fila-botones">
+<button class="primario" onclick="guardarProrrogaGasUI()">Guardar prórroga</button>
+<button class="secundario" onclick="cerrarProrrogaGasUI()">Cancelar</button>
+</div>
+</div>
+<table>
+<thead><tr><th>Unidad</th><th>Propietario</th><th>Quién debe</th><th>Monto total</th><th>Estado</th><th>Prórroga</th><th></th></tr></thead>
+<tbody id="gas_tbody"></tbody>
+</table>
+</div>
+
+<div class="tarjeta oculto" id="tarjetaGasTecnico">
+<h2>Cierre/Apertura de gas</h2>
+<p class="pequeno" id="gast_avance"></p>
+<div id="gast_actual"></div>
+<div id="gast_lista"></div>
+</div>
+
+<!-- BLOQUE 2: COLA DE TRABAJO DE HOY -->
+<div class="tarjeta oculto" id="tarjetaColaHoy">
+<h2>Cola de trabajo de hoy</h2>
+<table>
+<thead>
+<tr><th>Orden</th><th>Tarea</th><th>Estado</th><th>Asignado</th><th>Inicio</th><th>Fin</th><th>Min.</th><th></th></tr>
+</thead>
+<tbody id="tbodyColaHoy"></tbody>
+</table>
+</div>
+
+<div class="tarjeta oculto" id="tarjetaCompletarTarea">
+<h2>Completar tarea</h2>
+<form class="formulario" id="formCompletarTarea" onsubmit="return false;">
+<input type="hidden" id="fc_registro_id">
+<div style="grid-column:1/-1;">
+<label>¿Qué se hizo? (opcional)</label>
+<input type="text" id="fc_descripcion" placeholder="Notas de lo realizado">
+</div>
+<div style="grid-column:1/-1;">
+<label>Fotos de evidencia (al menos una, máximo 10)</label>
+<input type="file" id="fc_foto" accept="image/*" multiple onchange="agregarFotosEvidenciaTarea()">
+<p class="pequeno">Toma o elige fotos las veces que necesites: cada una se va sumando a la lista. Toca ✕ para quitar alguna. <b id="fc_fotos_cuenta">Sin fotos todavía</b></p>
+<div id="fc_fotos_lista" class="fotos-lista"></div>
+<div style="margin-top:8px;">
+<img id="fc_foto_preview" class="oculto" style="max-width:150px;max-height:150px;border-radius:8px;border:1px solid var(--borde);">
+</div>
+</div>
+<div class="fila-botones">
+<button class="exito" onclick="confirmarCompletarTareaUI()">Marcar como completada</button>
+<button class="secundario" onclick="cerrarCompletarTarea()">Cancelar</button>
+</div>
+</form>
+</div>
+
+
+<div class="tarjeta oculto" id="tarjetaSaltoUnico">
+<h2>Saltar tarea</h2>
+<form class="formulario" id="formSaltoUnico" onsubmit="return false;">
+<input type="hidden" id="su_registro_id">
+<div id="su_paso_motivo">
+<p class="pequeno">Escribe el motivo. Se avisará al supervisor para que te dé un código de autorización.</p>
+<div>
+<label>Motivo</label>
+<textarea id="su_motivo" rows="3" placeholder="Ej. falta de insumo, acceso cerrado..."></textarea>
+</div>
+<div class="fila-botones">
+<button class="secundario" onclick="enviarAlertaSaltoUI()">Alertar al supervisor</button>
+<button class="secundario" onclick="cerrarSaltoUnico()">Cancelar</button>
+</div>
+</div>
+<div id="su_paso_codigo" class="oculto">
+<p class="pequeno">Cuando el supervisor te dé el código, captúralo aquí para omitir la tarea.</p>
+<div>
+<label>Código de autorización</label>
+<input type="text" id="su_codigo" placeholder="4 dígitos" maxlength="4">
+</div>
+<div class="fila-botones">
+<button class="peligro" onclick="confirmarSaltoAutorizadoUI()">Validar y omitir</button>
+<button class="secundario" onclick="cerrarSaltoUnico()">Cancelar</button>
+</div>
+</div>
+</form>
+</div>
+
+
+
+
+<!-- BLOQUE 3: CHECKLIST DE EQUIPOS -->
+<div class="tarjeta oculto" id="tarjetaChecklistEquipos">
+<h2>Checklist de equipos (hoy)</h2>
+<table>
+<thead><tr><th>Equipo</th><th>Frecuencia</th><th>Estado hoy</th><th>N&deg; de acci&oacute;n</th><th></th></tr></thead>
+<tbody id="tbodyChecklistEquipos"></tbody>
+</table>
+</div>
+
+<div class="tarjeta oculto" id="tarjetaFormLecturaEquipo">
+<h2 id="tituloFormLecturaEquipo">Registrar lectura</h2>
+<form class="formulario" id="formLecturaEquipo" onsubmit="return false;">
+<input type="hidden" id="fle_equipo_id">
+<div id="camposLecturaEquipo" style="grid-column:1/-1;display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;"></div>
+<div class="fila-botones">
+<button class="exito" onclick="guardarLecturaEquipoUI()">Guardar lectura</button>
+<button class="secundario" onclick="cerrarFormLecturaEquipo()">Cancelar</button>
+</div>
+</form>
+</div>
+
+<!-- BLOQUE 3: ALMACEN -->
+<div class="tarjeta oculto" id="tarjetaAlmacen">
+<h2>Almac&eacute;n</h2>
+<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+<select id="alm_filtro_categoria" onchange="filtrarAlmacenUI()"><option value="">Todas las categorías</option></select>
+<input type="text" id="alm_buscar" placeholder="Buscar material por nombre..." oninput="filtrarAlmacenUI()" style="flex:1;min-width:180px;">
+</div>
+<table>
+<thead><tr><th>Foto</th><th>Material</th><th>Categoría</th><th>Tipo</th><th>Unidad</th><th>Existencia</th><th>Mínimo</th><th>Ubicación</th><th></th></tr></thead>
+<tbody id="tbodyAlmacen"></tbody>
+</table>
+</div>
+
+<div class="tarjeta oculto" id="tarjetaFormMaterialAlmacen">
+<h2 id="tituloFormMaterialAlmacen">Nuevo material</h2>
+<form class="formulario" id="formMaterialAlmacen" onsubmit="return false;">
+<input type="hidden" id="fam_material_id">
+<div><label>Nombre</label><input type="text" id="fam_nombre"></div>
+<div><label>Tipo</label><select id="fam_tipo"><option value="Consumible">Consumible</option><option value="Herramienta">Herramienta / Equipo</option></select></div>
+<div><label>Categor&iacute;a (opcional)</label><input type="text" id="fam_categoria" placeholder="Ej. Plomer&iacute;a, Electricidad"></div>
+<div><label>Unidad</label><select id="fam_unidad"><option value="">Selecciona...</option><option value="pza">Piezas (pza)</option><option value="L">Litros (L)</option><option value="ml">Mililitros (ml)</option><option value="kg">Kilogramos (kg)</option><option value="g">Gramos (g)</option><option value="m">Metros (m)</option><option value="cm">Centímetros (cm)</option></select></div>
+<div><label>Existencia inicial</label><input type="number" id="fam_stock_inicial" value="0"></div>
+<div><label>Existencia mínima (opcional)</label><input type="number" id="fam_stock_minimo"></div>
+<div><label>Ubicación (opcional)</label><input type="text" id="fam_ubicacion"></div>
+<div style="grid-column:1/-1;">
+<label>Fotografía del material (opcional)</label>
+<input type="file" id="fam_foto" accept="image/*" capture="environment" onchange="previsualizarFotoMaterial()">
+<div style="margin-top:8px;">
+<img id="fam_foto_preview" class="oculto" style="max-width:150px;max-height:150px;border-radius:8px;border:1px solid var(--borde);">
+</div>
+</div>
+<div id="fam_bloque_ajuste" class="oculto" style="grid-column:1/-1;border-top:1px solid var(--borde);padding-top:10px;margin-top:6px;">
+<label>Ajustar existencia (corrección directa; no genera una entrada/salida)</label>
+<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-top:4px;">
+<div><label class="pequeno">Existencia correcta</label><input type="number" step="any" min="0" id="fam_nueva_existencia" style="width:110px;"></div>
+<div style="flex:1;min-width:180px;"><label class="pequeno">Motivo del ajuste</label><input type="text" id="fam_motivo_ajuste" placeholder="Ej. conteo físico, corrección de migración"></div>
+<button type="button" class="secundario" onclick="ajustarExistenciaMaterialUI()">Ajustar existencia</button>
+</div>
+</div>
+
+<div class="fila-botones">
+<button class="primario" onclick="guardarMaterialAlmacenUI()">Guardar</button>
+<button class="secundario" onclick="cerrarFormMaterialAlmacen()">Cancelar</button>
+</div>
+</form>
+</div>
+
+<div class="tarjeta oculto" id="tarjetaFormMovimientoAlmacen">
+<h2 id="tituloFormMovimiento">Registrar movimiento</h2>
+<form class="formulario" id="formMovimientoAlmacen" onsubmit="return false;">
+<input type="hidden" id="fmv_material_id">
+<input type="hidden" id="fmv_tipo">
+<div><label>Cantidad (<span id="fmv_unidad_label">pza</span>)</label><input type="number" id="fmv_cantidad" min="1" step="1" inputmode="numeric" onkeydown="return bloquearDecimales_(event)"></div>
+<div><label>Notas (opcional)</label><input type="text" id="fmv_notas"></div>
+<div class="fila-botones">
+<button class="exito" onclick="confirmarMovimientoAlmacenUI()">Confirmar</button>
+<button class="secundario" onclick="cerrarFormMovimientoAlmacen()">Cancelar</button>
+</div>
+</form>
+</div>
+
+<!-- BLOQUE 4: TICKETS / INDICACIONES -->
+<div class="tarjeta oculto" id="tarjetaTickets">
+<h2>Tickets e indicaciones del día</h2>
+<table>
+<thead><tr><th>Fecha</th><th>De</th><th>Para</th><th>Mensaje</th><th>Prioridad</th><th>Estado</th><th></th></tr></thead>
+<tbody id="tbodyTickets"></tbody>
+</table>
+</div>
+
+<div class="tarjeta oculto" id="tarjetaComida">
+<h2>Mi comida</h2>
+<p class="pequeno" id="comidaEstadoTexto">Cargando…</p>
+<p class="pequeno" id="comidaAcumuladoTexto"></p>
+<div class="fila-botones">
+<button class="exito" id="btnIniciarComida" onclick="iniciarComidaUI()">Iniciar comida</button>
+<button class="peligro oculto" id="btnTerminarComida" onclick="terminarComidaUI()">Terminar comida</button>
+</div>
+<div id="bloqueComidaTodos" class="oculto" style="margin-top:18px;border-top:1px solid var(--borde);padding-top:14px;">
+<h2 style="font-size:14px;">Comida de todo el personal — hoy</h2>
+<table>
+<thead><tr><th>Técnico</th><th>Estado</th><th>Sesiones</th><th>Total acumulado hoy</th></tr></thead>
+<tbody id="tbodyComidaTodos"></tbody>
+</table>
+</div>
+</div>
+
+<div class="tarjeta oculto" id="tarjetaFormTicket">
+<h2 id="tituloFormTicket">Nuevo ticket</h2>
+<form class="formulario" id="formTicket" onsubmit="return false;">
+<input type="hidden" id="ft_ticket_id">
+<div>
+<label>Dirigido a</label>
+<select id="ft_dirigido_a"></select>
+</div>
+<div>
+<label>Prioridad</label>
+<select id="ft_prioridad">
+<option value="Alta">Alta</option>
+<option value="Media" selected>Media</option>
+<option value="Baja">Baja</option>
+</select>
+</div>
+<div style="grid-column:1/-1;">
+<label>Mensaje / indicación</label>
+<input type="text" id="ft_mensaje" placeholder="Describe qué hay que hacer">
+</div>
+<div style="grid-column:1/-1;">
+<label>Foto(s) del antes (opcional, máximo 5)</label>
+<input type="file" id="ft_fotos_antes" accept="image/*" multiple onchange="agregarFotosAntesTicket()">
+<p class="pequeno">Toma o elige una foto de lo que hay que reparar para que el técnico lo identifique sin duda. <b id="ft_fotos_antes_cuenta"></b></p>
+<div id="ft_fotos_antes_previas"></div>
+<div id="ft_fotos_antes_lista" class="fotos-lista"></div>
+</div>
+<div id="ft_bloque_motivo" class="oculto" style="grid-column:1/-1;">
+<label>Motivo de la edición (obligatorio)</label>
+<input type="text" id="ft_motivo" placeholder="Ej. cambio de destinatario, se corrigió el mensaje...">
+</div>
+<div class="fila-botones">
+<button class="primario" onclick="guardarTicketUI()" id="btnGuardarTicket">Enviar ticket</button>
+<button class="secundario" onclick="cerrarFormTicket()">Cancelar</button>
+</div>
+</form>
+</div>
+
+<div class="tarjeta oculto" id="tarjetaCancelarTicket">
+<h2>Cancelar ticket</h2>
+<form class="formulario" id="formCancelarTicket" onsubmit="return false;">
+<input type="hidden" id="ct_ticket_id">
+<div style="grid-column:1/-1;">
+<label>Motivo de la cancelación (obligatorio)</label>
+<textarea id="ct_motivo" rows="3" placeholder="Ej. ya no aplica, se resolvió por otro medio..."></textarea>
+</div>
+<div class="fila-botones">
+<button class="peligro" onclick="confirmarCancelarTicketUI()">Cancelar ticket</button>
+<button class="secundario" onclick="cerrarModalCancelarTicket()">Cerrar</button>
+</div>
+</form>
+</div>
+
+<!-- FASE 7 y 8: REPORTES E INDICADORES -->
+<div class="tarjeta oculto" id="tarjetaReportes">
+<h2>Reportes e indicadores</h2>
+<p class="pequeno">Filtra por fechas, técnico y área. Los indicadores se calculan con lo registrado en la app; el Excel trae el detalle completo y el PDF es el resumen para presentar.</p>
+<form class="formulario" onsubmit="return false;">
+<div><label>Desde</label><input type="date" id="rp_desde"></div>
+<div><label>Hasta</label><input type="date" id="rp_hasta"></div>
+<div><label>Técnico / usuario</label><select id="rp_usuario"><option value="">Todos</option></select></div>
+<div><label>Área o equipo</label><select id="rp_area"><option value="">Todas</option></select></div>
+<div class="fila-botones" style="grid-column:1/-1;flex-wrap:wrap;">
+<button class="secundario" onclick="rangoRapidoReporte('hoy')">Hoy</button>
+<button class="secundario" onclick="rangoRapidoReporte('semana')">7 días</button>
+<button class="secundario" onclick="rangoRapidoReporte('mes')">Este mes</button>
+<button class="secundario" onclick="rangoRapidoReporte('mesAnterior')">Mes anterior</button>
+<button class="secundario" onclick="rangoRapidoReporte('anio')">Este año</button>
+<button class="primario" onclick="actualizarDashboard()">Actualizar</button>
+</div>
+<div class="fila-botones" style="grid-column:1/-1;flex-wrap:wrap;">
+<button class="primario" id="rp_btnExcel" onclick="exportarReporteExcel()">⬇ Descargar Excel</button>
+<button class="primario" id="rp_btnPdf" onclick="exportarReportePdf()">⬇ Descargar PDF</button>
+</div>
+</form>
+<div id="rp_estado"></div>
+<div id="rp_contenido"></div>
+</div>
+
+
+</div>
+</div>
+
+<?!= incluir_('js_nucleo'); ?>
+<?!= incluir_('js_trabajos'); ?>
+<?!= incluir_('js_equipos'); ?>
+<?!= incluir_('js_almacen'); ?>
+<?!= incluir_('js_tickets_comida'); ?>
+<?!= incluir_('js_usuarios'); ?>
+<?!= incluir_('js_reportes'); ?>
+<?!= incluir_('js_gas'); ?>
+</body>
+</html>
+>

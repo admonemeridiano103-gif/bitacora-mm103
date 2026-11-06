@@ -1,0 +1,85 @@
+<style>
+:root{
+--azul:#1F4E78; --azul-claro:#2E6DA4; --gris:#f4f6f8; --borde:#dbe2e8;
+--verde:#2e7d32; --rojo:#c62828; --texto:#1c2b36;
+}
+*{box-sizing:border-box}
+body{font-family:'Segoe UI',Arial,sans-serif;margin:0;background:var(--gris);color:var(--texto);}
+header{background:var(--azul);color:#fff;padding:16px 20px;}
+header h1{margin:0;font-size:20px;}
+header p{margin:4px 0 0;font-size:13px;opacity:.85;}
+.contenedor{max-width:1100px;margin:0 auto;padding:20px;}
+.tarjeta{background:#fff;border:1px solid var(--borde);border-radius:10px;padding:18px 20px;margin-bottom:20px;}
+.cuadricula-menu{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;margin-top:14px;}
+.boton-menu{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;background:var(--gris);border:1px solid var(--borde);border-radius:10px;padding:18px 10px;font-size:13px;font-weight:600;color:var(--texto);min-height:90px;text-align:center;}
+.boton-menu:hover{background:#e9edf1;}
+.boton-menu-icono{font-size:26px;}
+.tarjeta h2{margin:0 0 14px;font-size:16px;color:var(--azul);}
+table{width:100%;border-collapse:collapse;font-size:13px;}
+th,td{padding:8px 10px;border-bottom:1px solid var(--borde);text-align:left;vertical-align:middle;}
+th{background:#eef3f7;color:var(--azul);font-weight:600;}
+tr:hover td{background:#fafcfe;}
+.badge{display:inline-block;padding:2px 9px;border-radius:12px;font-size:11px;font-weight:600;}
+.badge.activo{background:#e5f4e6;color:var(--verde);}
+.badge.inactivo{background:#fbe7e7;color:var(--rojo);}
+.fila-botones{display:flex;gap:6px;flex-wrap:wrap;}
+button{cursor:pointer;border:none;border-radius:6px;padding:6px 12px;font-size:12px;font-weight:600;}
+button.primario{background:var(--azul-claro);color:#fff;}
+button.secundario{background:#e9edf1;color:var(--texto);}
+button.peligro{background:#fbe7e7;color:var(--rojo);}
+button.exito{background:#e5f4e6;color:var(--verde);}
+button:disabled{opacity:.5;cursor:not-allowed;}
+form.formulario{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;align-items:end;}
+label{display:block;font-size:12px;color:#5a6b78;margin-bottom:4px;}
+input,select{width:100%;padding:7px 8px;border:1px solid var(--borde);border-radius:6px;font-size:13px;}
+.aviso{padding:12px 14px;border-radius:8px;font-size:13px;margin-bottom:16px;}
+.aviso.error{background:#fbe7e7;color:var(--rojo);}
+.aviso.info{background:#eaf2fb;color:var(--azul);}
+.aviso.exito{background:#e5f4e6;color:var(--verde);}
+#cargando{padding:40px;text-align:center;color:#5a6b78;}
+.oculto{display:none !important;}
+.checkbox-matriz{display:flex;justify-content:center;align-items:center;}
+.checkbox-matriz input{width:auto;margin:0;}
+.etiqueta-rol-permiso{display:flex;align-items:center;gap:4px;font-size:12px;white-space:nowrap;}
+.etiqueta-rol-permiso input{width:auto;margin:0;}
+.tabla-sticky-wrap{overflow:auto;max-height:65vh;border:1px solid var(--borde);border-radius:8px;}
+.tabla-sticky-wrap table{border-collapse:separate;border-spacing:0;width:auto;min-width:100%;}
+.tabla-sticky-wrap thead th{position:sticky;top:0;background:#eef3f7;z-index:2;white-space:nowrap;}
+.tabla-sticky-wrap th.col-fija,.tabla-sticky-wrap td.col-fija{position:sticky;left:0;background:#fff;z-index:1;white-space:nowrap;}
+.tabla-sticky-wrap thead th.col-fija{z-index:3;background:#eef3f7;}
+.badge.pausado{background:#fff3cd;color:#8a6400;}
+.pequeno{font-size:11px;color:#7a8a96;}
+.top-derecha{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;}
+.pantalla-acceso{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px 16px;}
+.caja-acceso{width:100%;max-width:380px;background:#fff;border-radius:14px;padding:28px 24px;border:1px solid var(--borde);box-shadow:0 2px 10px rgba(20,30,40,.08);}
+.caja-acceso .logo{width:56px;height:56px;border-radius:14px;background:var(--azul);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;margin:0 auto 14px;}
+.caja-acceso h1{margin:0 0 4px;font-size:19px;text-align:center;color:var(--azul);}
+.caja-acceso .sub{margin:0 0 18px;font-size:12.5px;color:#5a6b78;text-align:center;}
+.formulario-simple{display:grid;gap:14px;}
+.enlaces-acceso{margin-top:16px;display:flex;flex-direction:column;gap:6px;align-items:center;}
+button.enlace{background:none;border:none;color:var(--azul-claro);font-weight:600;font-size:12.5px;text-decoration:underline;cursor:pointer;padding:4px;}
+.paso-indicador{font-size:11.5px;color:#7a8a96;margin:0 0 12px;}
+
+/* Reportes e indicadores (Fase 7 y 8) */
+.rp-kpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px;margin:10px 0 18px;}
+.rp-kpi{background:var(--gris);border:1px solid var(--borde);border-radius:10px;padding:12px 8px;text-align:center;}
+.rp-kpi-v{font-size:22px;font-weight:700;color:var(--azul);}
+.rp-kpi-t{font-size:11px;color:#555;margin-top:4px;}
+.rp-col2{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px;}
+.rp-h3{font-size:13px;color:var(--azul);margin:16px 0 8px;}
+.rp-barra{display:grid;grid-template-columns:minmax(80px,38%) 1fr auto;align-items:center;gap:8px;margin-bottom:6px;font-size:12px;}
+.rp-barra-et{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.rp-barra-pista{background:#e9edf1;border-radius:4px;height:12px;overflow:hidden;}
+.rp-barra-relleno{background:var(--azul-claro);height:100%;border-radius:4px;}
+.rp-barra-v{font-weight:600;min-width:40px;text-align:right;}
+
+/* Varias fotos de evidencia */
+.fotos-lista{display:flex;flex-wrap:wrap;gap:10px;margin-top:8px;}
+.foto-mini{position:relative;}
+.foto-mini img{width:84px;height:84px;object-fit:cover;border-radius:8px;border:1px solid var(--borde);display:block;}
+.foto-mini button{position:absolute;top:-8px;right:-8px;width:24px;height:24px;border-radius:50%;padding:0;background:#c62828;color:#fff;border:none;font-size:12px;line-height:24px;cursor:pointer;}
+
+/* Fotos del antes en tickets */
+.fotos-antes{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;}
+.foto-antes-mini{width:52px;height:52px;object-fit:cover;border-radius:6px;border:1px solid var(--borde);display:block;}
+</style>
