@@ -32,6 +32,22 @@ Si añades, quitas o renombras un archivo, función, hoja, columna o permiso, ac
 - **PWA:** sube `VERSION` en `sw.js` en cada cambio de la PWA y la de `puente.js` si cambia el puente.
 - **Interfaz:** los cambios de pantalla van en el `vista_*.html` de su sección o en el `js_*.html` del módulo, no en `index.html`, que solo tiene el esqueleto y los `include`.
 
+## Antes de publicar
+
+1. Corre las simulaciones (datos ficticios, no tocan Google): `node pruebas/sim_cola.js apps-script`, `node pruebas/sim_historial.js apps-script`, `node pruebas/sim_comparativa.js apps-script`. Todas deben terminar con `0 FALLA`.
+2. Revisa la sintaxis de cada `.js` (`node --check`) y de cada `<script>` de la plantilla completa (expande los `include` de `apps-script/index.html`). Busca ids repetidos.
+3. Revisa la pantalla a 360, 768 y 1280 px. En teléfono simulado no basta `scrollWidth` vs `innerWidth`: busca elementos que pasen del ancho fuera de un contenedor con desplazamiento.
+4. Respaldo de la hoja en Drive ("RESPALDO MM103 antes <fase> (fecha)") y aprobación del dueño.
+5. `clasp push` y `clasp deploy --deploymentId <id de la implementación activa> --description "vNN: ..."` (equivale a "Nueva versión"; la URL no cambia; nunca crear implementación nueva). Confirma con `clasp deployments` que la activa subió de número.
+6. Verifica la interfaz publicada con la acción `fuente` de la API y su sintaxis; fusiona la rama a `main` y etiqueta `fase-N-vNN`.
+
+## Trampas conocidas (Windows / PowerShell)
+
+- `rd` es alias de `Remove-Item`: nunca nombres así una función (borró un archivo en la Fase 7).
+- Con `$ErrorActionPreference='Stop'`, los avisos normales de git por stderr cortan el script: deja los comandos de git fuera de ese bloque.
+- Los archivos de `apps-script/` están con CRLF en la copia de trabajo: lee, normaliza a LF, reemplaza texto que aparezca una sola vez y vuelve a escribir con el mismo fin de línea.
+- `git push` necesita que el dueño inicie sesión en GitHub; tú no tienes credenciales.
+
 ## Fuera de alcance por ahora
 
 La Fase 2 (recepción de datos de la otra app de Apps Script) está pausada hasta que el dueño comparta el acceso completo a esa app.
