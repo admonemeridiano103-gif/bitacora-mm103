@@ -710,7 +710,10 @@ function listarAuditoriaReciente(token, limite) {
   var tabla = leerTabla_(HOJAS.LOG);
   var filas = tabla.filas.map(function (f) { return f.obj; });
   filas.reverse();
-  return filas.slice(0, limite || 100);
+  filas = filas.slice(0, limite || 100);
+  // Fase 6: "Tiempo vs. promedio" en cada tarea completada. Si el cálculo fallara, la auditoría se muestra igual.
+  try { filas = agregarComparativaAuditoria_(filas); } catch (e) { console.warn('Comparativa en auditoría: ' + e); }
+  return filas;
 }
 
 

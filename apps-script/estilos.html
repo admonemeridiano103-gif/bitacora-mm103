@@ -117,4 +117,17 @@ body.con-barra .contenedor{padding-top:0!important;}
 .paginador{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:10px;flex-wrap:wrap;}
 .paginador button{min-height:44px;min-width:110px;}
 .hi-titulo{font-weight:700;font-size:14px;word-break:break-word;flex:1 1 60%;}
+/* Fase 6: comparativa de tiempos */
+.cmp-rapido{color:#2e7d32;font-weight:600;}
+.cmp-lento{color:#c62828;font-weight:600;}
+.rp-cmp-elegir{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:6px 0 10px;}
+.rp-cmp-elegir label{margin:0;}
+.rp-cmp-elegir select{width:auto;max-width:100%;}
+.rp-cmp-grafica{margin-bottom:12px;}
+.rp-dif-fila{display:grid;grid-template-columns:minmax(80px,30%) 1fr 116px;align-items:center;gap:8px;margin-bottom:6px;font-size:12px;}
+.rp-dif-pista{position:relative;height:14px;background:#e9edf1;border-radius:7px;}
+.rp-dif-pista::after{content:"";position:absolute;left:50%;top:-3px;bottom:-3px;width:2px;background:#7a8a96;}
+.rp-dif-barra{position:absolute;top:0;bottom:0;}
+.rp-dif-barra.rapido{right:50%;background:#2e7d32;border-radius:7px 0 0 7px;}
+.rp-dif-barra.lento{left:50%;background:#c62828;border-radius:0 7px 7px 0;}
 </style>
