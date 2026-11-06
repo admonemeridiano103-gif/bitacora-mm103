@@ -1,0 +1,33 @@
+<!-- CONTROL DE CIERRE/APERTURA DE GAS -->
+<div class="tarjeta oculto" id="tarjetaGasAdmin">
+<h2>Control de cierre/apertura de gas</h2>
+<p class="pequeno" id="gas_resumen"></p>
+<div class="formulario">
+<div><label>Monto mínimo para cierre ($)</label><input type="number" id="gas_minimo" min="0"></div>
+<div class="fila-botones"><button class="secundario" onclick="guardarMontoMinimoGasUI()">Guardar monto mínimo</button></div>
+<div><label>Reporte de morosidad de YAU (Excel)</label><input type="file" id="gas_archivo" accept=".xlsx,.xls,.csv"></div>
+<div class="fila-botones"><button class="primario" onclick="cargarReporteGasUI()">Cargar reporte (reemplaza el del mes en curso)</button></div>
+</div>
+<div id="gas_aviso" class="pequeno"></div>
+<div id="gas_form_prorroga" class="oculto formulario">
+<h3 id="gas_prorroga_titulo">Prórroga</h3>
+<div><label>Motivo</label><input type="text" id="gp_motivo"></div>
+<div><label>Quién autorizó</label><input type="text" id="gp_autorizo"></div>
+<div><label>Fecha límite</label><input type="date" id="gp_fecha"></div>
+<div class="fila-botones">
+<button class="primario" onclick="guardarProrrogaGasUI()">Guardar prórroga</button>
+<button class="secundario" onclick="cerrarProrrogaGasUI()">Cancelar</button>
+</div>
+</div>
+<table>
+<thead><tr><th>Unidad</th><th>Propietario</th><th>Quién debe</th><th>Monto total</th><th>Estado</th><th>Prórroga</th><th></th></tr></thead>
+<tbody id="gas_tbody"></tbody>
+</table>
+</div>
+
+<div class="tarjeta oculto" id="tarjetaGasTecnico">
+<h2>Cierre/Apertura de gas</h2>
+<p class="pequeno" id="gast_avance"></p>
+<div id="gast_actual"></div>
+<div id="gast_lista"></div>
+</div>

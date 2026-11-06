@@ -1,0 +1,66 @@
+<div class="tarjeta">
+<div class="top-derecha">
+<div>
+<strong id="saludo"></strong>
+<div class="pequeno" id="detalleUsuario"></div>
+</div>
+<span class="pequeno">Rol: <span id="rolActual"></span></span>
+<button class="secundario" onclick="cerrarSesionClick()">Salir</button>
+</div>
+</div>
+
+<div id="avisoGeneral"></div>
+
+<div id="botonVolverMenu" class="oculto" style="margin-bottom:16px;">
+<button class="secundario" onclick="mostrarMenuPrincipal()">&larr; Menú principal</button>
+</div>
+
+<div class="tarjeta" id="menuPrincipal">
+<h2>Menú principal</h2>
+<p class="pequeno">Elige una sección para verla.</p>
+<div id="avisoRecordatorios"></div>
+<div class="cuadricula-menu">
+<button class="boton-menu" id="menuBtnMiCuenta" onclick="mostrarSeccion('tarjetaMiCuenta')">
+<span class="boton-menu-icono">👤</span><span>Mi cuenta</span>
+</button>
+<button class="boton-menu oculto" id="menuBtnUsuarios" onclick="mostrarSeccion('tarjetaUsuarios')">
+<span class="boton-menu-icono">👥</span><span>Usuarios</span>
+</button>
+<button class="boton-menu oculto" id="menuBtnPermisos" onclick="mostrarSeccion('tarjetaPermisos')">
+<span class="boton-menu-icono">🔐</span><span>Permisos</span>
+</button>
+<button class="boton-menu oculto" id="menuBtnHorarios" onclick="mostrarSeccion('tarjetaHorarios')">
+<span class="boton-menu-icono">🕑</span><span>Horarios</span>
+</button>
+<button class="boton-menu oculto" id="menuBtnAuditoria" onclick="mostrarSeccion('tarjetaAuditoria')">
+<span class="boton-menu-icono">📋</span><span>Auditoría</span>
+</button>
+<button class="boton-menu oculto" id="menuBtnCatalogoTareas" onclick="mostrarSeccion('tarjetaCatalogoTareas')">
+<span class="boton-menu-icono">📆</span><span>Catálogo de tareas diarias</span>
+</button>
+<button class="boton-menu oculto" id="menuBtnTrabajosExtra" onclick="mostrarSeccion('tarjetaTrabajosExtra')">
+<span class="boton-menu-icono">🛠️</span><span>Trabajos programados</span>
+</button>
+<button class="boton-menu oculto" id="menuBtnGas" onclick="mostrarSeccion('tarjetaGasAdmin')">
+<span class="boton-menu-icono">🔥</span><span>Control de gas</span>
+</button>
+<button class="boton-menu oculto" id="menuBtnColaHoy" onclick="mostrarSeccion('tarjetaColaHoy')">
+<span class="boton-menu-icono">✅</span><span>Cola de trabajo de hoy</span>
+</button>
+<button class="boton-menu oculto" id="menuBtnChecklistEquipos" onclick="mostrarSeccion('tarjetaChecklistEquipos')">
+<span class="boton-menu-icono">⚙️</span><span>Checklist de equipos</span>
+</button>
+<button class="boton-menu oculto" id="menuBtnAlmacen" onclick="mostrarSeccion('tarjetaAlmacen')">
+<span class="boton-menu-icono">📦</span><span>Almacén</span>
+</button>
+<button class="boton-menu oculto" id="menuBtnTickets" onclick="mostrarSeccion('tarjetaTickets')">
+<span class="boton-menu-icono">🎫</span><span>Tickets e indicaciones</span>
+</button>
+<button class="boton-menu oculto" id="menuBtnComida" onclick="mostrarSeccion('tarjetaComida')">
+<span class="boton-menu-icono">🍽️</span><span>Mi comida</span>
+</button>
+<button class="boton-menu oculto" id="menuBtnReportes" onclick="mostrarSeccion('tarjetaReportes')">
+<span class="boton-menu-icono">📊</span><span>Reportes e indicadores</span>
+</button>
+</div>
+</div>

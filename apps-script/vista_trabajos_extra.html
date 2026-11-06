@@ -1,0 +1,38 @@
+<!-- BLOQUE 2: TRABAJOS EXTRA -->
+<div class="tarjeta oculto" id="tarjetaTrabajosExtra">
+<h2>Trabajos programados</h2>
+<table>
+<thead>
+<tr><th>Fecha</th><th>Descripción</th><th>Prioridad</th><th>Asignado</th><th>Estado</th><th></th></tr>
+</thead>
+<tbody id="tbodyTrabajosExtra"></tbody>
+</table>
+</div>
+
+<div class="tarjeta oculto" id="tarjetaFormTrabajoExtra">
+<h2>Nuevo trabajo programado</h2>
+<form class="formulario" id="formTrabajoExtra" onsubmit="return false;">
+<div><label>Descripción</label><input type="text" id="fe_descripcion"></div>
+<div><label>Origen (opcional)</label><input type="text" id="fe_origen" placeholder="Ej. Solicitud de residente"></div>
+<div><label>Fecha programada (opcional)</label><input type="date" id="fe_fecha"></div>
+<div><label>Hora programada (opcional)</label><input type="time" id="fe_hora"></div>
+<div>
+<label>Tipo de trabajo</label>
+<select id="fe_tipo" onchange="cambiarTipoTrabajoExtraUI()"><option value="">Tarea genérica</option><option value="Gas">Cierre/Apertura de gas</option><option value="Checklist">Checklist de equipos</option></select>
+<p class="pequeno" id="fe_tipo_ayuda"></p>
+</div>
+<div id="fe_equipos_fila" class="oculto">
+<label>Equipos del checklist</label>
+<input type="hidden" id="fe_equipos"><div id="fe_equipos_box"></div>
+</div>
+<div>
+<label>Prioridad</label>
+<select id="fe_prioridad"><option>Normal</option><option>Alta</option><option>Urgente</option></select>
+</div>
+<div><label>Asignar a (id de usuario, opcional)</label><input type="text" id="fe_asignado" placeholder="Ej. USR-002"></div>
+<div class="fila-botones">
+<button class="primario" onclick="guardarTrabajoExtraUI()">Guardar</button>
+<button class="secundario" onclick="cerrarFormularioTrabajoExtra()">Cancelar</button>
+</div>
+</form>
+</div>

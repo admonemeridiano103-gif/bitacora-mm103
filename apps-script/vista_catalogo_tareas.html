@@ -1,0 +1,82 @@
+<!-- BLOQUE 2: CATALOGO DE TAREAS DIARIAS -->
+<div class="tarjeta oculto" id="tarjetaCatalogoTareas">
+<h2>Catálogo de tareas diarias</h2>
+<table>
+<thead>
+<tr><th>Orden</th><th>Tarea</th><th>Tipo</th><th>Área/Equipo</th><th>Pasos</th><th>Activa</th><th></th></tr>
+</thead>
+<tbody id="tbodyCatalogoTareas"></tbody>
+</table>
+</div>
+
+<div class="tarjeta oculto" id="tarjetaFormTarea">
+<h2 id="tituloFormularioTarea">Nueva tarea diaria</h2>
+<form class="formulario" id="formTarea" onsubmit="return false;">
+<input type="hidden" id="ft_tarea_id">
+<div>
+<label>Nombre de la tarea</label>
+<input type="text" id="ft_nombre" placeholder="Ej. Revisión de área de albercas">
+</div>
+<div>
+<label>Tipo (opcional)</label>
+<input type="text" id="ft_tipo" placeholder="Ej. Limpieza, revisión...">
+</div>
+<div>
+<label>Área o equipo asociado (opcional)</label>
+<input type="text" id="ft_area">
+</div>
+<div>
+<label>Vincular con checklist de equipos</label>
+<input type="hidden" id="ft_equipos"><div id="ft_equipos_box"></div>
+<p class="pequeno">Marca exactamente los equipos que cubre esta tarea: el técnico registra sus lecturas en el checklist y la tarea se cierra sola al terminar. Sin marcar ninguno, es una tarea normal que se cierra con foto.</p>
+</div>
+<div>
+<label>Orden en la cola</label>
+<input type="number" id="ft_orden">
+</div>
+<div>
+<label>¿Tiene pasos definidos?</label>
+<select id="ft_requiere_pasos"><option value="false">No</option><option value="true">Sí</option></select>
+</div>
+<div>
+<label>Activa</label>
+<select id="ft_activo"><option value="true">Sí</option><option value="false">No</option></select>
+</div>
+<div>
+<label>Notas (opcional)</label>
+<input type="text" id="ft_notas">
+</div>
+<div class="fila-botones">
+<button class="primario" onclick="guardarTareaUI()">Guardar</button>
+<button class="secundario" onclick="cerrarFormularioTarea()">Cancelar</button>
+</div>
+</form>
+
+<div id="detalleTareaPasosMateriales" class="oculto" style="margin-top:18px;border-top:1px solid var(--borde);padding-top:14px;">
+<h2 style="font-size:14px;">Pasos de la tarea</h2>
+<table>
+<thead><tr><th>Orden</th><th>Nombre</th><th>Descripción</th><th></th></tr></thead>
+<tbody id="tbodyPasosTarea"></tbody>
+</table>
+<form class="formulario" id="formPaso" onsubmit="return false;" style="margin-top:10px;">
+<input type="hidden" id="fp_paso_id">
+<div><label>Orden</label><input type="number" id="fp_orden"></div>
+<div><label>Nombre del paso</label><input type="text" id="fp_nombre"></div>
+<div><label>Descripción (opcional)</label><input type="text" id="fp_descripcion"></div>
+<div class="fila-botones"><button class="secundario" onclick="guardarPasoUI()">+ Agregar paso</button></div>
+</form>
+
+<h2 style="font-size:14px;margin-top:18px;">Materiales de la tarea</h2>
+<table>
+<thead><tr><th>Material</th><th>Cantidad</th><th>Unidad</th><th></th></tr></thead>
+<tbody id="tbodyMaterialesTarea"></tbody>
+</table>
+<form class="formulario" id="formMaterial" onsubmit="return false;" style="margin-top:10px;">
+<input type="hidden" id="fm_relacion_id">
+<div><label>Material</label><input type="text" id="fm_material"></div>
+<div><label>Cantidad</label><input type="text" id="fm_cantidad"></div>
+<div><label>Unidad</label><input type="text" id="fm_unidad"></div>
+<div class="fila-botones"><button class="secundario" onclick="guardarMaterialUI()">+ Agregar material</button></div>
+</form>
+</div>
+</div>

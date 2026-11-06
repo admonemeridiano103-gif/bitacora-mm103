@@ -1,0 +1,20 @@
+<!-- BLOQUE 3: CHECKLIST DE EQUIPOS -->
+<div class="tarjeta oculto" id="tarjetaChecklistEquipos">
+<h2>Checklist de equipos (hoy)</h2>
+<table>
+<thead><tr><th>Equipo</th><th>Frecuencia</th><th>Estado hoy</th><th>N&deg; de acci&oacute;n</th><th></th></tr></thead>
+<tbody id="tbodyChecklistEquipos"></tbody>
+</table>
+</div>
+
+<div class="tarjeta oculto" id="tarjetaFormLecturaEquipo">
+<h2 id="tituloFormLecturaEquipo">Registrar lectura</h2>
+<form class="formulario" id="formLecturaEquipo" onsubmit="return false;">
+<input type="hidden" id="fle_equipo_id">
+<div id="camposLecturaEquipo" style="grid-column:1/-1;display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;"></div>
+<div class="fila-botones">
+<button class="exito" onclick="guardarLecturaEquipoUI()">Guardar lectura</button>
+<button class="secundario" onclick="cerrarFormLecturaEquipo()">Cancelar</button>
+</div>
+</form>
+</div>

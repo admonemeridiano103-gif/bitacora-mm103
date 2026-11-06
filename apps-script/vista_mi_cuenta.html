@@ -1,0 +1,25 @@
+<div class="tarjeta oculto" id="tarjetaMiCuenta">
+<h2>Mi cuenta</h2>
+<p class="pequeno">Puedes cambiar tu usuario o tu contraseña cuando quieras, sin pedirle nada a un administrador.</p>
+<div id="avisoCuenta"></div>
+<form class="formulario" onsubmit="return false;" style="margin-bottom:14px;">
+<div>
+<label>Cambiar mi usuario</label>
+<input type="text" id="mc_nuevo_usuario" placeholder="nuevo.usuario">
+</div>
+<button class="secundario" onclick="guardarMiUsuario()">Actualizar usuario</button>
+</form>
+<form class="formulario" onsubmit="return false;">
+<div>
+<label>Contraseña actual</label>
+<input type="password" id="mc_password_actual" autocomplete="current-password">
+<label class="pequeno" style="display:block;margin-top:4px;cursor:pointer;"><input type="checkbox" onchange="document.getElementById('mc_password_actual').type=this.checked?'text':'password'" style="vertical-align:middle;margin-right:4px;">Mostrar contraseña</label>
+</div>
+<div>
+<label>Nueva contraseña</label>
+<input type="password" id="mc_password_nueva" autocomplete="new-password">
+<label class="pequeno" style="display:block;margin-top:4px;cursor:pointer;"><input type="checkbox" onchange="document.getElementById('mc_password_nueva').type=this.checked?'text':'password'" style="vertical-align:middle;margin-right:4px;">Mostrar contraseña</label>
+</div>
+<button class="secundario" onclick="guardarMiPassword()">Actualizar contraseña</button>
+</form>
+</div>
