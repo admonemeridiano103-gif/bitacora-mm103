@@ -1,7 +1,19 @@
 <!-- AUDITORÍA -->
 <div class="tarjeta oculto" id="tarjetaAuditoria">
 <h2>Últimos movimientos (auditoría)</h2>
-<div style="overflow-x:auto">
+<details class="filtros-plegables" id="audFiltros">
+<summary>Filtros <span class="pequeno" id="audFiltrosActivos"></span></summary>
+<form class="formulario" onsubmit="return false;">
+<div><label>Buscar</label><input type="search" id="aud_texto" placeholder="Usuario, acción o detalle" oninput="filtrarAuditoria()"></div>
+<div><label>Usuario</label><select id="aud_usuario" onchange="filtrarAuditoria()"><option value="">Todos</option></select></div>
+<div><label>Acción</label><select id="aud_accion" onchange="filtrarAuditoria()"><option value="">Todas</option></select></div>
+<div><label>Desde</label><input type="date" id="aud_desde" onchange="filtrarAuditoria()"></div>
+<div><label>Hasta</label><input type="date" id="aud_hasta" onchange="filtrarAuditoria()"></div>
+<div><button class="secundario" type="button" onclick="limpiarFiltrosAuditoria()">Limpiar filtros</button></div>
+</form>
+</details>
+<p class="pequeno" id="audResumen"></p>
+<div class="solo-escritorio" style="overflow-x:auto">
 <table>
 <thead>
 <tr><th>Fecha</th><th>Quién</th><th>Acción</th><th>Entidad</th><th>Antes</th><th>Después</th></tr>
@@ -9,4 +21,6 @@
 <tbody id="tbodyAuditoria"></tbody>
 </table>
 </div>
+<div class="solo-movil" id="audTarjetas"></div>
+<div class="paginador" id="audPaginador"></div>
 </div>
