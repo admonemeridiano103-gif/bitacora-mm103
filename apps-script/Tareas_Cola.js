@@ -457,7 +457,7 @@ function asegurarColaDelDiaSinCache_(fecha) {
 }
 
 
-function listarColaDelDia(token, fecha) {
+function listarColaDelDia(token, fecha, incluirOcultos) {
   var usuario = requiereSesion_(token);
   var tienePermiso = usuarioTienePermiso_(usuario, PERMISOS.EJECUTAR_TAREAS_COLA) ||
     usuarioTienePermiso_(usuario, PERMISOS.CARGAR_MODIFICAR_TAREAS) ||
@@ -466,7 +466,39 @@ function listarColaDelDia(token, fecha) {
 
   fecha = fecha || fechaHoy_();
   if (fecha === fechaHoy_()) asegurarColaDelDia_(fecha);
-  return construirColaDelDia_(fecha);
+  // "Ver terminados y ocultos" (Fase 4): solo para quien puede volver a abrir trabajos.
+  var verOcultos = !!incluirOcultos && (usuarioTienePermiso_(usuario, PERMISOS.ENVIAR_TICKET) || usuarioTienePermiso_(usuario, PERMISOS.CARGAR_MODIFICAR_TAREAS));
+  return construirColaDelDia_(fecha, { incluirOcultos: verOcultos });
+}
+
+/**
+ * Fase 4 — Decide si un renglón de la cola se oculta y por qué ('' = se muestra). No borra ni cambia filas.
+ * - Nunca se oculta lo que está En proceso o Pausado (alguien lo tiene en las manos).
+ * - Extra: renglón Completada, o trabajo programado Completado/Cancelado.
+ * - Ticket: renglón Completada, o ticket Atendido/Cancelado.
+ * - Catálogo: tarea desactivada, solo para renglones con fecha >= fechaDesde (por defecto, hoy).
+ * - Gas: nunca.
+ * Al reabrir (Reapertura.js) el renglón vuelve a Pendiente y su origen a Pendiente/Abierto, así que reaparece.
+ */
+function motivoOcultoEnCola_(o, mapas, fechaDesde) {
+  if (!o || o.estado === 'En proceso' || o.estado === 'Pausado') return '';
+  var tipo = o.tipo_origen || 'Catalogo';
+  if (tipo === 'Gas') return '';
+  if (tipo === 'Extra') {
+    if (o.estado === 'Completada') return 'Trabajo programado completado';
+    var e = (mapas.extras || {})[o.origen_id];
+    if (e && (e.estado === 'Completado' || e.estado === 'Cancelado')) return 'Trabajo programado ' + String(e.estado).toLowerCase();
+    return '';
+  }
+  if (tipo === 'Ticket') {
+    if (o.estado === 'Completada') return 'Ticket completado';
+    var tk = (mapas.tickets || {})[o.origen_id];
+    if (tk && (tk.estado === 'Atendido' || tk.estado === 'Cancelado')) return 'Ticket ' + String(tk.estado).toLowerCase();
+    return '';
+  }
+  var t = (mapas.catalogo || {})[o.tarea_id];
+  if (t && !(t.activo === true || t.activo === 'TRUE') && soloFecha_(o.fecha) >= (fechaDesde || fechaHoy_())) return 'Tarea desactivada en el catálogo';
+  return '';
 }
 
 /**
@@ -474,12 +506,13 @@ function listarColaDelDia(token, fecha) {
  * Si la cola fue reordenada a mano (posicion_manual), ese orden manda; lo que se agregue
  * después sin posición (por ejemplo un ticket nuevo) queda al final de la lista.
  */
-function construirColaDelDia_(fecha) {
+function construirColaDelDia_(fecha, opciones) {
+  var incluirOcultos = !!(opciones && opciones.incluirOcultos);
+  var hoy = fechaHoy_();
   var mapas = mapasOrdenCola_();
   var catalogo = mapas.catalogo;
   var tickets = mapas.tickets;
-  var extras = {};
-  leerTabla_(HOJAS.EXTRA).filas.forEach(function (f) { extras[f.obj.id] = f.obj; });
+  var extras = mapas.extras;
   var equiposCat = [];
   try { equiposCat = obtenerCatalogoEquipos_(); } catch (e) { equiposCat = []; }
 
@@ -552,11 +585,13 @@ function construirColaDelDia_(fecha) {
       base.reabierto_veces = parseInt(o.reabierto_veces, 10) || 0;
       base.reabierto_por = o.reabierto_por || '';
       base.posicion_manual = valorPosicionManual_(o.posicion_manual);
+      base.oculto_motivo = motivoOcultoEnCola_(o, mapas, hoy);
       base.orden_efectivo = claveOrdenCola_(o, catalogo, tickets);
       base.orden_cola = base.orden_efectivo;
       base._indice = indiceOriginal;
       return base;
     });
+  if (!incluirOcultos) filas = filas.filter(function (f) { return !f.oculto_motivo; });
   filas.sort(function (a, b) { return (a.orden_efectivo - b.orden_efectivo) || (a._indice - b._indice); });
   filas.forEach(function (f, i) { f.posicion = i + 1; delete f._indice; });
   return filas;
@@ -612,7 +647,9 @@ function mapasOrdenCola_() {
   leerTabla_(HOJAS.CAT_TAREAS).filas.forEach(function (f) { catalogo[f.obj.tarea_id] = f.obj; });
   var tickets = {};
   leerTabla_('TICKETS_INDICACIONES').filas.forEach(function (f) { tickets[f.obj.ticket_id] = f.obj; });
-  return { catalogo: catalogo, tickets: tickets };
+  var extras = {};
+  leerTabla_(HOJAS.EXTRA).filas.forEach(function (f) { extras[f.obj.id] = f.obj; });
+  return { catalogo: catalogo, tickets: tickets, extras: extras };
 }
 
 /** Crea una sola vez las columnas que usa la pausa (se recuerda en las propiedades del script). */
@@ -671,13 +708,16 @@ function tomarTarea(token, registroId, motivoPausa) {
       if (actual && actual.obj.registro_id === registroId) return { ok: false, mensaje: 'Ese trabajo ya lo tienes en proceso.' };
       if (o.estado === 'Pendiente') {
         if (o.usuario_asignado_actual && o.usuario_asignado_actual !== miId) return { ok: false, mensaje: 'Ese trabajo está dirigido a otra persona.' };
+        var motivoOculto = motivoOcultoEnCola_(o, mapasOrdenCola_(), fecha);
+        if (motivoOculto) return { ok: false, mensaje: 'Ese trabajo ya no está en la cola (' + motivoOculto + '). Actualiza la cola.' };
       } else if (o.estado !== 'Pausado') {
         return { ok: false, mensaje: 'Ese trabajo ya no está disponible (está "' + o.estado + '"). Actualiza la cola.' };
       }
     } else {
       mapas = mapasOrdenCola_();
       var candidatos = deHoy.filter(function (f) {
-        return f.obj.estado === 'Pendiente' && (!f.obj.usuario_asignado_actual || f.obj.usuario_asignado_actual === miId);
+        return f.obj.estado === 'Pendiente' && (!f.obj.usuario_asignado_actual || f.obj.usuario_asignado_actual === miId) &&
+          !motivoOcultoEnCola_(f.obj, mapas, fecha);
       });
       candidatos.sort(function (a, b) {
         return (claveOrdenCola_(a.obj, mapas.catalogo, mapas.tickets) - claveOrdenCola_(b.obj, mapas.catalogo, mapas.tickets)) || (a.indiceFila - b.indiceFila);
@@ -1054,6 +1094,7 @@ function ticketsUrgentesDeHoyOrdenados_() {
     if (soloFecha_(o.fecha) !== fecha || o.tipo_origen !== 'Ticket') return false;
     if (o.estado !== 'Pendiente' && o.estado !== 'En proceso') return false;
     var tk = tickets[o.origen_id];
+    if (tk && o.estado === 'Pendiente' && (tk.estado === 'Atendido' || tk.estado === 'Cancelado')) return false;
     return tk && tk.prioridad === 'Alta';
   });
   lista.sort(function (a, b) {
@@ -1152,8 +1193,11 @@ function ejecutarCierreJornada_(fechaCierre, idUsuarioActor, correoActor) {
 
   var fechaSiguiente = fechaSiguienteDiaHabil_(fechaCierre);
   var tabla = leerTabla_(HOJAS.COLA);
+  var mapasCierre = mapasOrdenCola_();
+  // Fase 4: lo que está oculto en la cola no se traslada al día siguiente; se queda en su fecha, sin borrarse.
   var aTrasladar = tabla.filas.filter(function (f) {
-    return soloFecha_(f.obj.fecha) === fechaCierre && (f.obj.estado === 'Pendiente' || f.obj.estado === 'En proceso' || f.obj.estado === 'Pausado');
+    return soloFecha_(f.obj.fecha) === fechaCierre && (f.obj.estado === 'Pendiente' || f.obj.estado === 'En proceso' || f.obj.estado === 'Pausado') &&
+      !motivoOcultoEnCola_(f.obj, mapasCierre, fechaCierre);
   });
 
   // Las tareas de catálogo que ya existen en el día siguiente no se trasladan: se cierran como
@@ -1252,7 +1296,8 @@ function moverTareaEnCola(token, registroId, destino) {
   var mapas = mapasOrdenCola_();
   function ordenEfectivo_(f) { return claveOrdenCola_(f.obj, mapas.catalogo, mapas.tickets); }
 
-  var deHoy = tabla.filas.filter(function (f) { return soloFecha_(f.obj.fecha) === fecha; });
+  // Las posiciones se cuentan sobre lo que se ve en la cola (sin renglones ocultos, Fase 4).
+  var deHoy = tabla.filas.filter(function (f) { return soloFecha_(f.obj.fecha) === fecha && !motivoOcultoEnCola_(f.obj, mapas, fecha); });
   deHoy.sort(function (a, b) { return (ordenEfectivo_(a) - ordenEfectivo_(b)) || (a.indiceFila - b.indiceFila); });
 
   var indice = -1;

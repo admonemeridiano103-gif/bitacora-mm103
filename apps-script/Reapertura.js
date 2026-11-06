@@ -56,7 +56,8 @@ function reabrirTrabajoCompletado(token, registroId, motivo, fotos) {
       }
     } else if (tipo === 'Extra') {
       var ee = buscarFilaPorValor_(HOJAS.EXTRA, 'id', o.origen_id, false);
-      if (ee && ee.fila.obj.estado === 'Completado') escribirCamposFila_(ee, soloColumnasExistentes_(ee, { estado: 'Pendiente' }));
+      // Fase 4: si el trabajo programado quedó Completado o Cancelado, vuelve a Pendiente para que el renglón reaparezca en la cola.
+      if (ee && (ee.fila.obj.estado === 'Completado' || ee.fila.obj.estado === 'Cancelado')) escribirCamposFila_(ee, soloColumnasExistentes_(ee, { estado: 'Pendiente' }));
     }
 
     enc = buscarFilaPorValor_(HOJAS.COLA, 'registro_id', registroId, false);

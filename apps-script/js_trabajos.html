@@ -339,14 +339,47 @@ function pintarRecordatorios(lista) {
   }).join('');
 }
 
+/**
+ * Fase 4: lo terminado u oculto no se ve en la cola. El servidor ya filtra (oculto_motivo); aquí también se
+ * esconden al instante los trabajos programados y tickets completados sin internet (la tableta marca
+ * "Completada" antes de subir). Con "Ver terminados y ocultos" se muestran para poder volver a abrirlos.
+ */
+function filaVisibleEnCola_(f) {
+  if (ESTADO.colaVerOcultos) return true;
+  if (f.oculto_motivo) return false;
+  if ((f.tipo_origen === 'Extra' || f.tipo_origen === 'Ticket') && f.estado === 'Completada') return false;
+  return true;
+}
+
+function alternarColaOcultos() {
+  ESTADO.colaVerOcultos = !ESTADO.colaVerOcultos;
+  recargarColaVista_();
+}
+
+function recargarColaVista_() {
+  var conOcultos = !!ESTADO.colaVerOcultos;
+  var run = google.script.run
+    .withSuccessHandler(function (filas) {
+      ESTADO.colaPintandoConOcultos = conOcultos;
+      try { pintarColaHoy(filas || []); } finally { ESTADO.colaPintandoConOcultos = false; }
+    })
+    .withFailureHandler(mostrarError);
+  if (conOcultos) run.listarColaDelDia(TOKEN, null, true); else run.listarColaDelDia(TOKEN, null);
+}
+
 function pintarColaHoy(filas) {
   ESTADO.colaHoy = filas;
   var tbodyCola = document.getElementById('tbodyColaHoy');
   if (tbodyCola) tbodyCola.style.opacity = '';
   var permisos = ESTADO.usuarioActual.permisos;
   var miId = ESTADO.usuarioActual.id_usuario;
+  var puedeVerOcultos = !!(permisos.ENVIAR_TICKET || permisos.CARGAR_MODIFICAR_TAREAS);
+  if (!puedeVerOcultos) ESTADO.colaVerOcultos = false;
+  // Si la vista "con ocultos" está activa y llegó la lista normal (por ejemplo, la respuesta de una acción), se vuelve a pedir con ocultos.
+  if (ESTADO.colaVerOcultos && !ESTADO.colaPintandoConOcultos && navigator.onLine !== false) setTimeout(recargarColaVista_, 0);
+  var visibles = filas.filter(filaVisibleEnCola_);
 
-  var cuerpo = filas.map(function (f) {
+  var cuerpo = visibles.map(function (f) {
     var botones = '';
     var esMia = f.usuario_asignado_actual === miId;
     if (permisos.EJECUTAR_TAREAS_COLA && f.estado === 'En proceso' && esMia) {
@@ -408,7 +441,7 @@ function pintarColaHoy(filas) {
     }
     return '<tr>' +
     '<td>' + escapar_(f.posicion || f.orden_cola) + '</td>' +
-    '<td>' + escapar_(f.nombre_tarea) + ligaFotosAntes_(f.fotos_antes) + (f.area_o_equipo_asociado ? ' <span class="pequeno">(' + escapar_(f.area_o_equipo_asociado) + ')</span>' : '') + (f.tipo_origen && f.tipo_origen !== 'Catalogo' ? ' <span class="pequeno">[' + escapar_(f.tipo_origen) + (f.prioridad ? ' ' + escapar_(f.prioridad) : '') + ']</span>' : '') + (f.motivo_salto ? '<br><span class="pequeno">Motivo solicitado: ' + escapar_(f.motivo_salto) + '</span>' : '') + (f.motivo_reapertura ? '<br><span class="pequeno" style="color:#b3261e;font-weight:600;">Reabierto' + (f.reabierto_veces > 1 ? ' (' + f.reabierto_veces + ' veces)' : '') + (f.reabierto_por ? ' por ' + escapar_(f.reabierto_por) : '') + ' — falta: ' + escapar_(f.motivo_reapertura) + '</span>' + (f.tipo_origen !== 'Ticket' ? ligaFotosAntes_(f.fotos_reapertura) : '') : '') + (f.estado === 'Pausado' ? '<br><span class="pequeno"><b>Pausado</b>' + (f.pausado_por ? ' por ' + escapar_(f.pausado_por) : '') + (f.motivo_pausa ? ': ' + escapar_(f.motivo_pausa) : '') + (f.tiempo_acumulado_segundos ? ' · llevaba ' + Math.round(f.tiempo_acumulado_segundos / 60) + ' min' : '') + '</span>' : '') + '</td>' +
+    '<td>' + escapar_(f.nombre_tarea) + ligaFotosAntes_(f.fotos_antes) + (f.area_o_equipo_asociado ? ' <span class="pequeno">(' + escapar_(f.area_o_equipo_asociado) + ')</span>' : '') + (f.tipo_origen && f.tipo_origen !== 'Catalogo' ? ' <span class="pequeno">[' + escapar_(f.tipo_origen) + (f.prioridad ? ' ' + escapar_(f.prioridad) : '') + ']</span>' : '') + (f.motivo_salto ? '<br><span class="pequeno">Motivo solicitado: ' + escapar_(f.motivo_salto) + '</span>' : '') + (f.motivo_reapertura ? '<br><span class="pequeno" style="color:#b3261e;font-weight:600;">Reabierto' + (f.reabierto_veces > 1 ? ' (' + f.reabierto_veces + ' veces)' : '') + (f.reabierto_por ? ' por ' + escapar_(f.reabierto_por) : '') + ' — falta: ' + escapar_(f.motivo_reapertura) + '</span>' + (f.tipo_origen !== 'Ticket' ? ligaFotosAntes_(f.fotos_reapertura) : '') : '') + (f.oculto_motivo ? '<br><span class="pequeno"><b>Oculto en la cola:</b> ' + escapar_(f.oculto_motivo) + '</span>' : '') + (f.estado === 'Pausado' ? '<br><span class="pequeno"><b>Pausado</b>' + (f.pausado_por ? ' por ' + escapar_(f.pausado_por) : '') + (f.motivo_pausa ? ': ' + escapar_(f.motivo_pausa) : '') + (f.tiempo_acumulado_segundos ? ' · llevaba ' + Math.round(f.tiempo_acumulado_segundos / 60) + ' min' : '') + '</span>' : '') + '</td>' +
     '<td><span class="badge ' + badgeClase + '">' + escapar_(f.estado) + '</span></td>' +
     '<td>' + escapar_(f.usuario_asignado_actual) + '</td>' +
     '<td>' + (f.hora_inicio ? new Date(f.hora_inicio).toLocaleTimeString() : '') + '</td>' +
@@ -417,7 +450,7 @@ function pintarColaHoy(filas) {
     '<td><div class="fila-botones">' + botones + '</div></td>' +
     '</tr>';
   }).join('');
-  document.getElementById('tbodyColaHoy').innerHTML = cuerpo || '<tr><td colspan="8" class="pequeno">Sin tareas en la cola de hoy.</td></tr>';
+  document.getElementById('tbodyColaHoy').innerHTML = cuerpo || '<tr><td colspan="8" class="pequeno">' + (filas.length ? 'No hay trabajos pendientes a la vista.' : 'Sin tareas en la cola de hoy.') + '</td></tr>';
 
   var tarjeta = document.getElementById('tarjetaColaHoy');
   if (permisos.EJECUTAR_TAREAS_COLA && tarjeta && !document.getElementById('btnTomarSiguiente')) {
@@ -439,6 +472,21 @@ function pintarColaHoy(filas) {
     botonCierre.textContent = 'Cerrar jornada';
     botonCierre.onclick = cerrarJornadaUI;
     tarjeta.insertBefore(botonCierre, tarjeta.querySelector('table'));
+  }
+
+  if (puedeVerOcultos && tarjeta) {
+    var botonOcultos = document.getElementById('btnVerOcultosCola');
+    if (!botonOcultos) {
+      botonOcultos = document.createElement('button');
+      botonOcultos.id = 'btnVerOcultosCola';
+      botonOcultos.className = 'secundario';
+      botonOcultos.style.marginBottom = '12px';
+      botonOcultos.style.marginLeft = '8px';
+      botonOcultos.title = 'Muestra trabajos programados y tickets terminados, y tareas desactivadas, para poder volver a abrirlos';
+      botonOcultos.onclick = alternarColaOcultos;
+      tarjeta.insertBefore(botonOcultos, tarjeta.querySelector('table'));
+    }
+    botonOcultos.textContent = ESTADO.colaVerOcultos ? 'Ocultar terminados' : 'Ver terminados y ocultos';
   }
 
 }
