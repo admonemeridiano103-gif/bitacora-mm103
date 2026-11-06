@@ -50,6 +50,7 @@ function ocultarPantallasAcceso_() {
 function mostrarLogin(mensaje) {
   ocultarPantallasAcceso_();
   document.getElementById('panel').classList.add('oculto');
+  document.body.classList.remove('con-barra');
   document.getElementById('pantallaLogin').classList.remove('oculto');
   document.getElementById('avisoLogin').innerHTML = mensaje ? '<div class="aviso error">' + escapar_(mensaje) + '</div>' : '';
 }
@@ -82,7 +83,8 @@ function mostrarSeccion(idSeccion) {
     document.getElementById(id).classList.add('oculto');
   });
   document.getElementById(idSeccion).classList.remove('oculto');
-  document.getElementById('botonVolverMenu').classList.remove('oculto');
+  document.getElementById('barraBtnMenu').classList.remove('oculto');
+  document.getElementById('barraMarca').classList.add('oculto');
   window.scrollTo(0, 0);
   SECCION_ACTUAL = idSeccion;
   cargarSeccion_(idSeccion);
@@ -93,7 +95,8 @@ function mostrarMenuPrincipal() {
   SECCIONES_PRINCIPALES.forEach(function (id) {
     document.getElementById(id).classList.add('oculto');
   });
-  document.getElementById('botonVolverMenu').classList.add('oculto');
+  document.getElementById('barraBtnMenu').classList.add('oculto');
+  document.getElementById('barraMarca').classList.remove('oculto');
   document.getElementById('menuPrincipal').classList.remove('oculto');
   window.scrollTo(0, 0);
   SECCION_ACTUAL = null;
@@ -104,6 +107,7 @@ function entrarConSesion(usuario) {
   ocultarPantallasAcceso_();
   ESTADO.usuarioActual = usuario;
   document.getElementById('panel').classList.remove('oculto');
+  document.body.classList.add('con-barra');
   document.getElementById('saludo').textContent = 'Hola, ' + usuario.nombre_completo;
   document.getElementById('detalleUsuario').textContent = usuario.correo + ' · @' + (usuario.usuario || '') + ' · código ' + usuario.codigo_personal;
   document.getElementById('rolActual').textContent = usuario.rol;
@@ -222,9 +226,18 @@ function confirmarRecuperar() {
 
 // ---------- cerrar sesión ----------
 function cerrarSesionClick() {
-  var t = TOKEN;
-  borrarToken_();
+  // En la versión offline (PWA) avisa si hay cambios sin subir; en la web normal no hay bandeja.
+  var pend = 0, prob = 0;
+  try { if (window.MM103 && window.MM103.estado) { var est = window.MM103.estado(); pend = est.pendientes || 0; prob = est.errores || 0; } } catch (x) { }
+  if (pend || prob) {
+    var partes = [];
+    if (pend) partes.push(pend + ' cambio(s) sin subir');
+    if (prob) partes.push(prob + ' con problema');
+    if (!confirm('Tienes ' + partes.join(' y ') + '.\n\nNo se pierden: quedan guardados en este dispositivo. Para que se suban, vuelve a entrar con tu usuario y con internet.\n\n¿Salir de todos modos?')) return;
+  }
+  var t = TOKEN;  borrarToken_();
   document.getElementById('panel').classList.add('oculto');
+  document.body.classList.remove('con-barra');
   mostrarLogin();
   if (t) google.script.run.withFailureHandler(function () {}).cerrarSesion(t);
 }

@@ -82,4 +82,14 @@ button.enlace{background:none;border:none;color:var(--azul-claro);font-weight:60
 /* Fotos del antes en tickets */
 .fotos-antes{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;}
 .foto-antes-mini{width:52px;height:52px;object-fit:cover;border-radius:6px;border:1px solid var(--borde);display:block;}
+/* Barra superior fija (Fase 7): Menú principal y Salir; respeta la zona segura de iPhone y Android */
+.barra-fija{position:fixed;top:0;left:0;right:0;z-index:1000;background:#0f5e63;color:#fff;padding:env(safe-area-inset-top) max(12px,env(safe-area-inset-right)) 0 max(12px,env(safe-area-inset-left));box-shadow:0 2px 8px rgba(0,0,0,.2);}
+.barra-interior{max-width:1100px;margin:0 auto;height:56px;display:flex;align-items:center;justify-content:space-between;gap:10px;}
+.barra-espacio{height:calc(56px + env(safe-area-inset-top));}
+.barra-marca{font-weight:700;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.barra-btn{background:rgba(255,255,255,.18)!important;color:#fff!important;min-height:44px!important;padding:8px 14px!important;border-radius:10px!important;font-size:14px!important;font-weight:600!important;white-space:nowrap;}
+.barra-btn:active{background:rgba(255,255,255,.3)!important;}
+.barra-salir{margin-left:auto;}
+body.con-barra header{display:none;}
+body.con-barra .contenedor{padding-top:0!important;}
 </style>

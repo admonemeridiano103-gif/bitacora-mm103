@@ -13,7 +13,7 @@ html{-webkit-text-size-adjust:100%}
 body{font:16px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif!important;background:var(--gris)!important;color:var(--texto)!important;padding-bottom:calc(70px + env(safe-area-inset-bottom))}
 
 /* Encabezado */
-header{position:sticky;top:0;z-index:50;background:#0f5e63!important;color:#fff;padding:calc(12px + env(safe-area-inset-top)) 16px 12px!important}
+header{position:static;background:#0f5e63!important;color:#fff;padding:calc(12px + env(safe-area-inset-top)) 16px 12px!important}
 header h1{font-size:18px!important}
 header p{display:none}
 .contenedor{padding:12px 16px!important;max-width:980px!important}
@@ -96,3 +96,6 @@ tr:hover td{background:transparent!important}
 /* Textos con aviso en rojo (por ejemplo "Reabierto … falta: …") y fuente normal en áreas de texto */
 .pequeno[style*="b3261e"]{color:var(--rojo)!important;font-weight:600!important}
 textarea,input,select{font-family:inherit!important}
+
+/* Fase 7: la barra fija ya cubre el encabezado; el aviso flotante baja para no taparla */
+#mmAviso{top:calc(68px + env(safe-area-inset-top))!important}

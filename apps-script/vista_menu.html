@@ -1,3 +1,12 @@
+<div id="barraSuperior" class="barra-fija" role="navigation" aria-label="Barra principal">
+<div class="barra-interior">
+<button id="barraBtnMenu" class="barra-btn oculto" onclick="mostrarMenuPrincipal()">&larr; Menú principal</button>
+<span id="barraMarca" class="barra-marca">Bitácora MM103</span>
+<button id="barraBtnSalir" class="barra-btn barra-salir" onclick="cerrarSesionClick()">Salir</button>
+</div>
+</div>
+<div class="barra-espacio"></div>
+
 <div class="tarjeta">
 <div class="top-derecha">
 <div>
@@ -5,15 +14,10 @@
 <div class="pequeno" id="detalleUsuario"></div>
 </div>
 <span class="pequeno">Rol: <span id="rolActual"></span></span>
-<button class="secundario" onclick="cerrarSesionClick()">Salir</button>
 </div>
 </div>
 
 <div id="avisoGeneral"></div>
-
-<div id="botonVolverMenu" class="oculto" style="margin-bottom:16px;">
-<button class="secundario" onclick="mostrarMenuPrincipal()">&larr; Menú principal</button>
-</div>
 
 <div class="tarjeta" id="menuPrincipal">
 <h2>Menú principal</h2>

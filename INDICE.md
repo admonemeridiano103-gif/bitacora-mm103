@@ -34,9 +34,10 @@ DOM + ESTADO global                       Funciones de dominio (.js)
 ```
 
 - **Servidor:** toda función pública recibe `token` como primer argumento, salvo `login`, `solicitarCodigoAcceso`, `crearCredenciales`, `restablecerPassword`, `obtenerPermisos` y las de sistema (`doGet`, `doPost`, `onOpen`, `preparar*`, `crearHojas*`, `rolloverJornadaProgramado`). Las mutaciones llaman `registrarAuditoria_`. Muchas devuelven `{ ok, cola: construirColaDelDia_(fechaHoy_()) }`.
+- **Barra fija (Fase 7):** `#barraSuperior` (CSS `.barra-fija` en `estilos.html`, HTML en `vista_menu`) vive dentro de `#panel`, así que solo existe tras el login. `body.con-barra` oculta el `header` y se pone/quita en `entrarConSesion`, `mostrarLogin` y `cerrarSesionClick`. Usa `env(safe-area-inset-*)` para iPhone y Android; `piel.css` fija el `header` como `static` y baja el aviso `#mmAviso` para no taparlo. La pastilla de estado de la PWA está abajo a la izquierda y no choca con la barra.
 - **Cliente:** `TOKEN` en `localStorage`; `ESTADO` global en `js_nucleo.html`; `mostrarSeccion(id)` alterna tarjetas; `cargarSeccion_()` pide datos al abrir cada módulo.
 - **PWA:** `index.html` (raíz) descarga la interfaz real con la acción `fuente` (el HTML ya evaluado, con los `include`), inyecta `puente.js` y `piel.css` y emula `google.script.run`. Cualquier cambio en Apps Script llega a la PWA sin tocar GitHub. `sw.js` guarda el shell; **sube `VERSION` en `sw.js` en cada cambio de la PWA** y la de `puente.js` cuando cambie el puente.
-- **Cierre de sesión:** servidor `cerrarSesion` (borra la fila de `SESIONES`, audita `LOGOUT`); web `cerrarSesionClick()` en `js_nucleo.html`; PWA: `puente.js` bloquea la salida si hay operaciones pendientes (a cambiar en la Fase 7).
+- **Cierre de sesión:** servidor `cerrarSesion` (borra la fila de `SESIONES`, audita `LOGOUT`); web `cerrarSesionClick()` en `js_nucleo.html`; PWA: `puente.js` rechaza `cerrarSesion` si hay operaciones pendientes y conserva caché y bandeja. Desde la Fase 7 el botón **Salir** de la barra fija (`cerrarSesionClick`) lee `window.MM103.estado()` y, si hay pendientes o errores, pide confirmación antes de salir; no se pierde nada, los cambios quedan en el dispositivo y se suben al volver a entrar con internet.
 
 ## 3. Plantilla de la interfaz y sus secciones (Fase 1)
 
@@ -47,7 +48,7 @@ DOM + ESTADO global                       Funciones de dominio (.js)
 | `estilos` | CSS | — |
 | `vista_login` | login, activación de cuenta (2 pasos), recuperación | `pantallaLogin`, `pantallaActivar`, `pantallaRecuperar` |
 | `vista_sin_acceso` | aviso de sin acceso | `sinAcceso` |
-| `vista_menu` | saludo, "Salir", botón Menú principal, cuadrícula de 14 botones | `menuPrincipal`, `botonVolverMenu` |
+| `vista_menu` | barra superior fija (← Menú principal / Salir), saludo y cuadrícula de 14 botones | `barraSuperior`, `barraBtnMenu`, `barraMarca`, `barraBtnSalir`, `menuPrincipal` |
 | `vista_mi_cuenta` | cambio de usuario y contraseña | `tarjetaMiCuenta` |
 | `vista_usuarios` | lista, alta y edición | `tarjetaUsuarios`, `tarjetaAltaUsuarios` |
 | `vista_permisos` | matriz de permisos | `tarjetaPermisos` |
