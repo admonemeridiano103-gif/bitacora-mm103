@@ -1,0 +1,37 @@
+<!-- HISTORIAL DE TRABAJOS (Fase 5) -->
+<div class="tarjeta oculto" id="tarjetaHistorial">
+<h2>Historial de trabajos</h2>
+<p class="pequeno">Trabajos completados, cancelados o saltados de días ya cerrados. Se archivan solos al cerrar la jornada; en la cola no se borra nada.</p>
+<form class="formulario" onsubmit="return false;">
+<div><label>Desde</label><input type="date" id="hi_desde"></div>
+<div><label>Hasta</label><input type="date" id="hi_hasta"></div>
+<div><label>Técnico</label><select id="hi_tecnico"><option value="">Todos</option></select></div>
+<div><label>Tipo</label><select id="hi_tipo"><option value="">Todos</option></select></div>
+<div><label>Estado final</label><select id="hi_estado"><option value="">Todos</option></select></div>
+<div><label>Buscar</label><input type="search" id="hi_texto" placeholder="Trabajo, motivo o técnico"></div>
+<div class="fila-botones" style="grid-column:1/-1;flex-wrap:wrap;">
+<button class="secundario" type="button" onclick="rangoRapidoHistorial('semana')">7 días</button>
+<button class="secundario" type="button" onclick="rangoRapidoHistorial('mes')">Este mes</button>
+<button class="secundario" type="button" onclick="rangoRapidoHistorial('mesAnterior')">Mes anterior</button>
+<button class="primario" type="button" onclick="buscarHistorial()">Buscar</button>
+<button class="secundario" type="button" onclick="limpiarFiltrosHistorial()">Limpiar</button>
+</div>
+<div class="fila-botones" style="grid-column:1/-1;flex-wrap:wrap;">
+<button class="primario" type="button" id="hi_btnExcel" onclick="exportarHistorialExcel()">⬇ Descargar Excel</button>
+<button class="primario" type="button" id="hi_btnPdf" onclick="exportarHistorialPdf()">⬇ Descargar PDF</button>
+<button class="secundario oculto" type="button" id="hi_btnActualizar" title="Archiva los días anteriores sin cerrar la jornada de hoy" onclick="actualizarHistorialUI()">Actualizar historial</button>
+</div>
+</form>
+<div id="hi_estadoMsg"></div>
+<p class="pequeno" id="hi_resumen"></p>
+<div class="solo-escritorio" style="overflow-x:auto">
+<table>
+<thead>
+<tr><th>Fecha</th><th>Tipo</th><th>Trabajo</th><th>Estado final</th><th>Técnico</th><th>Min.</th><th>Motivo / descripción</th><th>Foto</th></tr>
+</thead>
+<tbody id="tbodyHistorial"></tbody>
+</table>
+</div>
+<div class="solo-movil" id="hiTarjetas"></div>
+<div class="paginador" id="hiPaginador"></div>
+</div>
