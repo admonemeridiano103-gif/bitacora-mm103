@@ -1,0 +1,64 @@
+<!-- BLOQUE 2: COLA DE TRABAJO DE HOY -->
+<div class="tarjeta oculto" id="tarjetaColaHoy">
+<h2>Cola de trabajo de hoy</h2>
+<table>
+<thead>
+<tr><th>Orden</th><th>Tarea</th><th>Estado</th><th>Asignado</th><th>Inicio</th><th>Fin</th><th>Min.</th><th></th></tr>
+</thead>
+<tbody id="tbodyColaHoy"></tbody>
+</table>
+</div>
+
+<div class="tarjeta oculto" id="tarjetaCompletarTarea">
+<h2>Completar tarea</h2>
+<form class="formulario" id="formCompletarTarea" onsubmit="return false;">
+<input type="hidden" id="fc_registro_id">
+<div style="grid-column:1/-1;">
+<label>¿Qué se hizo? (opcional)</label>
+<input type="text" id="fc_descripcion" placeholder="Notas de lo realizado">
+</div>
+<div style="grid-column:1/-1;">
+<label>Fotos de evidencia (al menos una, máximo 10)</label>
+<input type="file" id="fc_foto" accept="image/*" multiple onchange="agregarFotosEvidenciaTarea()">
+<p class="pequeno">Toma o elige fotos las veces que necesites: cada una se va sumando a la lista. Toca ✕ para quitar alguna. <b id="fc_fotos_cuenta">Sin fotos todavía</b></p>
+<div id="fc_fotos_lista" class="fotos-lista"></div>
+<div style="margin-top:8px;">
+<img id="fc_foto_preview" class="oculto" style="max-width:150px;max-height:150px;border-radius:8px;border:1px solid var(--borde);">
+</div>
+</div>
+<div class="fila-botones">
+<button class="exito" onclick="confirmarCompletarTareaUI()">Marcar como completada</button>
+<button class="secundario" onclick="cerrarCompletarTarea()">Cancelar</button>
+</div>
+</form>
+</div>
+
+
+<div class="tarjeta oculto" id="tarjetaSaltoUnico">
+<h2>Saltar tarea</h2>
+<form class="formulario" id="formSaltoUnico" onsubmit="return false;">
+<input type="hidden" id="su_registro_id">
+<div id="su_paso_motivo">
+<p class="pequeno">Escribe el motivo. Se avisará al supervisor para que te dé un código de autorización.</p>
+<div>
+<label>Motivo</label>
+<textarea id="su_motivo" rows="3" placeholder="Ej. falta de insumo, acceso cerrado..."></textarea>
+</div>
+<div class="fila-botones">
+<button class="secundario" onclick="enviarAlertaSaltoUI()">Alertar al supervisor</button>
+<button class="secundario" onclick="cerrarSaltoUnico()">Cancelar</button>
+</div>
+</div>
+<div id="su_paso_codigo" class="oculto">
+<p class="pequeno">Cuando el supervisor te dé el código, captúralo aquí para omitir la tarea.</p>
+<div>
+<label>Código de autorización</label>
+<input type="text" id="su_codigo" placeholder="4 dígitos" maxlength="4">
+</div>
+<div class="fila-botones">
+<button class="peligro" onclick="confirmarSaltoAutorizadoUI()">Validar y omitir</button>
+<button class="secundario" onclick="cerrarSaltoUnico()">Cancelar</button>
+</div>
+</div>
+</form>
+</div>

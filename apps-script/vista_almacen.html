@@ -1,0 +1,60 @@
+<!-- BLOQUE 3: ALMACEN -->
+<div class="tarjeta oculto" id="tarjetaAlmacen">
+<h2>Almac&eacute;n</h2>
+<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+<select id="alm_filtro_categoria" onchange="filtrarAlmacenUI()"><option value="">Todas las categorías</option></select>
+<input type="text" id="alm_buscar" placeholder="Buscar material por nombre..." oninput="filtrarAlmacenUI()" style="flex:1;min-width:180px;">
+</div>
+<table>
+<thead><tr><th>Foto</th><th>Material</th><th>Categoría</th><th>Tipo</th><th>Unidad</th><th>Existencia</th><th>Mínimo</th><th>Ubicación</th><th></th></tr></thead>
+<tbody id="tbodyAlmacen"></tbody>
+</table>
+</div>
+
+<div class="tarjeta oculto" id="tarjetaFormMaterialAlmacen">
+<h2 id="tituloFormMaterialAlmacen">Nuevo material</h2>
+<form class="formulario" id="formMaterialAlmacen" onsubmit="return false;">
+<input type="hidden" id="fam_material_id">
+<div><label>Nombre</label><input type="text" id="fam_nombre"></div>
+<div><label>Tipo</label><select id="fam_tipo"><option value="Consumible">Consumible</option><option value="Herramienta">Herramienta / Equipo</option></select></div>
+<div><label>Categor&iacute;a (opcional)</label><input type="text" id="fam_categoria" placeholder="Ej. Plomer&iacute;a, Electricidad"></div>
+<div><label>Unidad</label><select id="fam_unidad"><option value="">Selecciona...</option><option value="pza">Piezas (pza)</option><option value="L">Litros (L)</option><option value="ml">Mililitros (ml)</option><option value="kg">Kilogramos (kg)</option><option value="g">Gramos (g)</option><option value="m">Metros (m)</option><option value="cm">Centímetros (cm)</option></select></div>
+<div><label>Existencia inicial</label><input type="number" id="fam_stock_inicial" value="0"></div>
+<div><label>Existencia mínima (opcional)</label><input type="number" id="fam_stock_minimo"></div>
+<div><label>Ubicación (opcional)</label><input type="text" id="fam_ubicacion"></div>
+<div style="grid-column:1/-1;">
+<label>Fotografía del material (opcional)</label>
+<input type="file" id="fam_foto" accept="image/*" capture="environment" onchange="previsualizarFotoMaterial()">
+<div style="margin-top:8px;">
+<img id="fam_foto_preview" class="oculto" style="max-width:150px;max-height:150px;border-radius:8px;border:1px solid var(--borde);">
+</div>
+</div>
+<div id="fam_bloque_ajuste" class="oculto" style="grid-column:1/-1;border-top:1px solid var(--borde);padding-top:10px;margin-top:6px;">
+<label>Ajustar existencia (corrección directa; no genera una entrada/salida)</label>
+<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-top:4px;">
+<div><label class="pequeno">Existencia correcta</label><input type="number" step="any" min="0" id="fam_nueva_existencia" style="width:110px;"></div>
+<div style="flex:1;min-width:180px;"><label class="pequeno">Motivo del ajuste</label><input type="text" id="fam_motivo_ajuste" placeholder="Ej. conteo físico, corrección de migración"></div>
+<button type="button" class="secundario" onclick="ajustarExistenciaMaterialUI()">Ajustar existencia</button>
+</div>
+</div>
+
+<div class="fila-botones">
+<button class="primario" onclick="guardarMaterialAlmacenUI()">Guardar</button>
+<button class="secundario" onclick="cerrarFormMaterialAlmacen()">Cancelar</button>
+</div>
+</form>
+</div>
+
+<div class="tarjeta oculto" id="tarjetaFormMovimientoAlmacen">
+<h2 id="tituloFormMovimiento">Registrar movimiento</h2>
+<form class="formulario" id="formMovimientoAlmacen" onsubmit="return false;">
+<input type="hidden" id="fmv_material_id">
+<input type="hidden" id="fmv_tipo">
+<div><label>Cantidad (<span id="fmv_unidad_label">pza</span>)</label><input type="number" id="fmv_cantidad" min="1" step="1" inputmode="numeric" onkeydown="return bloquearDecimales_(event)"></div>
+<div><label>Notas (opcional)</label><input type="text" id="fmv_notas"></div>
+<div class="fila-botones">
+<button class="exito" onclick="confirmarMovimientoAlmacenUI()">Confirmar</button>
+<button class="secundario" onclick="cerrarFormMovimientoAlmacen()">Cancelar</button>
+</div>
+</form>
+</div>

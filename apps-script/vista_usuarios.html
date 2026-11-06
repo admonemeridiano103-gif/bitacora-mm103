@@ -1,0 +1,54 @@
+<!-- USUARIOS -->
+<div class="tarjeta oculto" id="tarjetaUsuarios">
+<h2>Usuarios</h2>
+<table>
+<thead>
+<tr>
+<th>ID</th><th>Nombre</th><th>Correo</th><th>Usuario</th><th>Rol</th><th>Código</th>
+<th>Estado</th><th>Horario</th><th>Acciones</th>
+</tr>
+</thead>
+<tbody id="tbodyUsuarios"></tbody>
+</table>
+</div>
+
+<!-- ALTA / EDICIÓN DE USUARIO -->
+<div class="tarjeta oculto" id="tarjetaAltaUsuarios">
+<h2 id="tituloFormularioUsuario">Dar de alta usuario</h2>
+<form class="formulario" id="formUsuario" onsubmit="return false;">
+<input type="hidden" id="fu_id_usuario">
+<div>
+<label>Nombre completo</label>
+<input type="text" id="fu_nombre" placeholder="Nombre y apellidos">
+</div>
+<div>
+<label>Correo</label>
+<input type="email" id="fu_correo" placeholder="correo@gmail.com">
+</div>
+<div>
+<label>Usuario (nombre de acceso)</label>
+<input type="text" id="fu_usuario" placeholder="ej. jgutierrez">
+<p class="pequeno">Solo aplica si la persona ya activó su cuenta. Para un usuario nuevo, déjalo en blanco — lo elige él mismo al activar su cuenta.</p>
+</div>
+<div>
+<label>Rol</label>
+<select id="fu_rol"></select>
+</div>
+<div>
+<label>Teléfono (opcional)</label>
+<input type="text" id="fu_telefono">
+</div>
+<div>
+<label>Horario (opcional)</label>
+<select id="fu_horario"><option value="">— Sin asignar —</option></select>
+</div>
+<div>
+<label>Notas (opcional)</label>
+<input type="text" id="fu_notas">
+</div>
+<div class="fila-botones">
+<button class="primario" onclick="guardarUsuario()">Guardar</button>
+<button class="secundario" onclick="cerrarFormularioUsuario()">Cancelar</button>
+</div>
+</form>
+</div>

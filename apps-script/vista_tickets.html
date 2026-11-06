@@ -1,0 +1,78 @@
+<!-- BLOQUE 4: TICKETS / INDICACIONES -->
+<div class="tarjeta oculto" id="tarjetaTickets">
+<h2>Tickets e indicaciones del día</h2>
+<table>
+<thead><tr><th>Fecha</th><th>De</th><th>Para</th><th>Mensaje</th><th>Prioridad</th><th>Estado</th><th></th></tr></thead>
+<tbody id="tbodyTickets"></tbody>
+</table>
+</div>
+
+<div class="tarjeta oculto" id="tarjetaComida">
+<h2>Mi comida</h2>
+<p class="pequeno" id="comidaEstadoTexto">Cargando…</p>
+<p class="pequeno" id="comidaAcumuladoTexto"></p>
+<div class="fila-botones">
+<button class="exito" id="btnIniciarComida" onclick="iniciarComidaUI()">Iniciar comida</button>
+<button class="peligro oculto" id="btnTerminarComida" onclick="terminarComidaUI()">Terminar comida</button>
+</div>
+<div id="bloqueComidaTodos" class="oculto" style="margin-top:18px;border-top:1px solid var(--borde);padding-top:14px;">
+<h2 style="font-size:14px;">Comida de todo el personal — hoy</h2>
+<table>
+<thead><tr><th>Técnico</th><th>Estado</th><th>Sesiones</th><th>Total acumulado hoy</th></tr></thead>
+<tbody id="tbodyComidaTodos"></tbody>
+</table>
+</div>
+</div>
+
+<div class="tarjeta oculto" id="tarjetaFormTicket">
+<h2 id="tituloFormTicket">Nuevo ticket</h2>
+<form class="formulario" id="formTicket" onsubmit="return false;">
+<input type="hidden" id="ft_ticket_id">
+<div>
+<label>Dirigido a</label>
+<select id="ft_dirigido_a"></select>
+</div>
+<div>
+<label>Prioridad</label>
+<select id="ft_prioridad">
+<option value="Alta">Alta</option>
+<option value="Media" selected>Media</option>
+<option value="Baja">Baja</option>
+</select>
+</div>
+<div style="grid-column:1/-1;">
+<label>Mensaje / indicación</label>
+<input type="text" id="ft_mensaje" placeholder="Describe qué hay que hacer">
+</div>
+<div style="grid-column:1/-1;">
+<label>Foto(s) del antes (opcional, máximo 5)</label>
+<input type="file" id="ft_fotos_antes" accept="image/*" multiple onchange="agregarFotosAntesTicket()">
+<p class="pequeno">Toma o elige una foto de lo que hay que reparar para que el técnico lo identifique sin duda. <b id="ft_fotos_antes_cuenta"></b></p>
+<div id="ft_fotos_antes_previas"></div>
+<div id="ft_fotos_antes_lista" class="fotos-lista"></div>
+</div>
+<div id="ft_bloque_motivo" class="oculto" style="grid-column:1/-1;">
+<label>Motivo de la edición (obligatorio)</label>
+<input type="text" id="ft_motivo" placeholder="Ej. cambio de destinatario, se corrigió el mensaje...">
+</div>
+<div class="fila-botones">
+<button class="primario" onclick="guardarTicketUI()" id="btnGuardarTicket">Enviar ticket</button>
+<button class="secundario" onclick="cerrarFormTicket()">Cancelar</button>
+</div>
+</form>
+</div>
+
+<div class="tarjeta oculto" id="tarjetaCancelarTicket">
+<h2>Cancelar ticket</h2>
+<form class="formulario" id="formCancelarTicket" onsubmit="return false;">
+<input type="hidden" id="ct_ticket_id">
+<div style="grid-column:1/-1;">
+<label>Motivo de la cancelación (obligatorio)</label>
+<textarea id="ct_motivo" rows="3" placeholder="Ej. ya no aplica, se resolvió por otro medio..."></textarea>
+</div>
+<div class="fila-botones">
+<button class="peligro" onclick="confirmarCancelarTicketUI()">Cancelar ticket</button>
+<button class="secundario" onclick="cerrarModalCancelarTicket()">Cerrar</button>
+</div>
+</form>
+</div>

@@ -1,0 +1,106 @@
+<div id="pantallaLogin" class="pantalla-acceso oculto">
+<div class="caja-acceso">
+<div class="logo">M103</div>
+<h1>Bitácora de Mantenimiento</h1>
+<p class="sub">Condominio Maestro Meridiano 103</p>
+<div id="avisoLogin"></div>
+<form class="formulario-simple" onsubmit="return false;">
+<div>
+<label>Usuario</label>
+<input type="text" id="li_usuario" autocomplete="username" placeholder="tu.usuario">
+</div>
+<div>
+<label>Contraseña</label>
+<input type="password" id="li_password" autocomplete="current-password" placeholder="••••••••">
+<label class="pequeno" style="display:block;margin-top:4px;cursor:pointer;"><input type="checkbox" onchange="document.getElementById('li_password').type=this.checked?'text':'password'" style="vertical-align:middle;margin-right:4px;">Mostrar contraseña</label>
+</div>
+<button class="primario" onclick="hacerLogin()" style="padding:13px;">Entrar</button>
+</form>
+<div class="enlaces-acceso">
+<button class="enlace" onclick="mostrarActivar()">Primera vez aquí — activar mi cuenta</button>
+<button class="enlace" onclick="mostrarRecuperar()">Olvidé mi contraseña</button>
+</div>
+</div>
+</div>
+
+<div id="pantallaActivar" class="pantalla-acceso oculto">
+<div class="caja-acceso">
+<h1>Activar mi cuenta</h1>
+<p class="sub">Solo si un administrador ya te dio de alta con tu correo.</p>
+<div id="avisoActivar"></div>
+
+<div id="activarPaso1">
+<p class="paso-indicador">Paso 1 de 2 — confirma tu correo</p>
+<form class="formulario-simple" onsubmit="return false;">
+<div>
+<label>Correo con el que te dieron de alta</label>
+<input type="email" id="ac_correo" autocomplete="email" placeholder="correo@ejemplo.com">
+</div>
+<button class="primario" onclick="pedirCodigoActivar()" style="padding:13px;">Enviarme un código</button>
+</form>
+</div>
+
+<div id="activarPaso2" class="oculto">
+<p class="paso-indicador">Paso 2 de 2 — crea tu acceso</p>
+<form class="formulario-simple" onsubmit="return false;">
+<div>
+<label>Código que recibiste por correo</label>
+<input type="text" id="ac_codigo" inputmode="numeric" placeholder="123456">
+</div>
+<div>
+<label>Elige tu usuario</label>
+<input type="text" id="ac_usuario" autocomplete="username" placeholder="ej. jgutierrez">
+</div>
+<div>
+<label>Elige tu contraseña (mínimo 8 caracteres)</label>
+<input type="password" id="ac_password" autocomplete="new-password" placeholder="••••••••">
+<label class="pequeno" style="display:block;margin-top:4px;cursor:pointer;"><input type="checkbox" onchange="document.getElementById('ac_password').type=this.checked?'text':'password'" style="vertical-align:middle;margin-right:4px;">Mostrar contraseña</label>
+</div>
+<button class="primario" onclick="confirmarActivar()" style="padding:13px;">Crear mi acceso y entrar</button>
+</form>
+</div>
+
+<div class="enlaces-acceso">
+<button class="enlace" onclick="mostrarLogin()">Volver a iniciar sesión</button>
+</div>
+</div>
+</div>
+
+<div id="pantallaRecuperar" class="pantalla-acceso oculto">
+<div class="caja-acceso">
+<h1>Recuperar contraseña</h1>
+<p class="sub">Te mandamos un código a tu correo dado de alta.</p>
+<div id="avisoRecuperar"></div>
+
+<div id="recuperarPaso1">
+<p class="paso-indicador">Paso 1 de 2 — confirma tu correo</p>
+<form class="formulario-simple" onsubmit="return false;">
+<div>
+<label>Tu correo o usuario dado de alta</label>
+<input type="text" id="re_correo" autocomplete="username" placeholder="correo@ejemplo.com o tu.usuario">
+</div>
+<button class="primario" onclick="pedirCodigoRecuperar()" style="padding:13px;">Enviarme un código</button>
+</form>
+</div>
+
+<div id="recuperarPaso2" class="oculto">
+<p class="paso-indicador">Paso 2 de 2 — nueva contraseña</p>
+<form class="formulario-simple" onsubmit="return false;">
+<div>
+<label>Código que recibiste por correo</label>
+<input type="text" id="re_codigo" inputmode="numeric" placeholder="123456">
+</div>
+<div>
+<label>Nueva contraseña (mínimo 8 caracteres)</label>
+<input type="password" id="re_password" autocomplete="new-password" placeholder="••••••••">
+<label class="pequeno" style="display:block;margin-top:4px;cursor:pointer;"><input type="checkbox" onchange="document.getElementById('re_password').type=this.checked?'text':'password'" style="vertical-align:middle;margin-right:4px;">Mostrar contraseña</label>
+</div>
+<button class="primario" onclick="confirmarRecuperar()" style="padding:13px;">Cambiar contraseña</button>
+</form>
+</div>
+
+<div class="enlaces-acceso">
+<button class="enlace" onclick="mostrarLogin()">Volver a iniciar sesión</button>
+</div>
+</div>
+</div>

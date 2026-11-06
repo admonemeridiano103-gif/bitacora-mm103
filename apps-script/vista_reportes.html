@@ -1,0 +1,25 @@
+<!-- FASE 7 y 8: REPORTES E INDICADORES -->
+<div class="tarjeta oculto" id="tarjetaReportes">
+<h2>Reportes e indicadores</h2>
+<p class="pequeno">Filtra por fechas, técnico y área. Los indicadores se calculan con lo registrado en la app; el Excel trae el detalle completo y el PDF es el resumen para presentar.</p>
+<form class="formulario" onsubmit="return false;">
+<div><label>Desde</label><input type="date" id="rp_desde"></div>
+<div><label>Hasta</label><input type="date" id="rp_hasta"></div>
+<div><label>Técnico / usuario</label><select id="rp_usuario"><option value="">Todos</option></select></div>
+<div><label>Área o equipo</label><select id="rp_area"><option value="">Todas</option></select></div>
+<div class="fila-botones" style="grid-column:1/-1;flex-wrap:wrap;">
+<button class="secundario" onclick="rangoRapidoReporte('hoy')">Hoy</button>
+<button class="secundario" onclick="rangoRapidoReporte('semana')">7 días</button>
+<button class="secundario" onclick="rangoRapidoReporte('mes')">Este mes</button>
+<button class="secundario" onclick="rangoRapidoReporte('mesAnterior')">Mes anterior</button>
+<button class="secundario" onclick="rangoRapidoReporte('anio')">Este año</button>
+<button class="primario" onclick="actualizarDashboard()">Actualizar</button>
+</div>
+<div class="fila-botones" style="grid-column:1/-1;flex-wrap:wrap;">
+<button class="primario" id="rp_btnExcel" onclick="exportarReporteExcel()">⬇ Descargar Excel</button>
+<button class="primario" id="rp_btnPdf" onclick="exportarReportePdf()">⬇ Descargar PDF</button>
+</div>
+</form>
+<div id="rp_estado"></div>
+<div id="rp_contenido"></div>
+</div>
