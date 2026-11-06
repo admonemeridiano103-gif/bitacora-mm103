@@ -124,6 +124,13 @@ function entrarConSesion(usuario) {
     var el = document.getElementById(id);
     if (el) el.classList.add('oculto');
   });
+  // Fase 8: los botones que los módulos crean al pintar (cola, usuarios) se quitan al cambiar de usuario,
+  // para que no le queden visibles a otro perfil que entre en el mismo navegador sin recargar.
+  ['btnTomarSiguiente', 'btnCerrarJornada', 'btnVerOcultosCola', 'btnNuevoUsuario'].forEach(function (id) {
+    var el = document.getElementById(id);
+    if (el && el.parentNode) el.parentNode.removeChild(el);
+  });
+  ESTADO.colaVerOcultos = false;
 
   if (permisos.ALTA_BAJA_USUARIOS) {
     document.getElementById('tarjetaAltaUsuarios').classList.remove('oculto');

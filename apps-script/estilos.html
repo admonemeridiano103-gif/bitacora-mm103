@@ -130,4 +130,6 @@ body.con-barra .contenedor{padding-top:0!important;}
 .rp-dif-barra{position:absolute;top:0;bottom:0;}
 .rp-dif-barra.rapido{right:50%;background:#2e7d32;border-radius:7px 0 0 7px;}
 .rp-dif-barra.lento{left:50%;background:#c62828;border-radius:0 7px 7px 0;}
+/* Fase 8: en la web normal (sin PWA) las tablas anchas se desplazan dentro de su tarjeta; así la página no se ensancha y la barra fija conserva Salir a la vista */
+@media (max-width:820px){ #panel .tarjeta{overflow-x:auto;} }
 </style>

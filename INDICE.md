@@ -145,7 +145,7 @@ Los `vista_*` no contienen scriptlets (`<? ?>`), así que `incluir_()` los inser
 `cargarHistorial_()` L5  ·  `filtrosHistorial_()` L12  ·  `rangoRapidoHistorial(cual, sinBuscar)` L23  ·  `limpiarFiltrosHistorial()` L33  ·  `buscarHistorial()` L38  ·  `llenarSelectHistorial_(id, textoTodos, valores)` L46  ·  `pintarHistorial(r)` L54  ·  `badgeHistorial_(estado)` L64  ·  `fotoHistorial_(url)` L69  ·  `pintarPaginaHistorial_()` L73  ·  `cambiarPaginaHistorial(delta)` L114  ·  `mensajeHistorial_(html)` L122  ·  `actualizarHistorialUI()` L126  ·  `asegurarXlsxHistorial_(ok, mal)` L140  ·  `exportarHistorialExcel()` L149  ·  `exportarHistorialPdf()` L182
 
 ### `js_nucleo.html` — 26 funciones
-`guardarToken_(t)` L9  ·  `borrarToken_()` L13  ·  `tokenGuardado_()` L17  ·  `ocultarPantallasAcceso_()` L44  ·  `mostrarLogin(mensaje)` L50  ·  `mostrarActivar()` L58  ·  `mostrarRecuperar()` L66  ·  `mostrarSeccion(idSeccion)` L80  ·  `mostrarMenuPrincipal()` L94  ·  `entrarConSesion(usuario)` L106  ·  `hacerLogin()` L153  ·  `pedirCodigoActivar()` L168  ·  `confirmarActivar()` L186  ·  `pedirCodigoRecuperar()` L202  ·  `confirmarRecuperar()` L216  ·  `cerrarSesionClick()` L231  ·  `guardarMiUsuario()` L249  ·  `guardarMiPassword()` L262  ·  `cargarTodo()` L284  ·  `cargarRolesYHorarios_()` L295  ·  `marcarCargando_(idSeccion)` L307  ·  `cargarChecklistEquipos_(alTerminar)` L317  ·  `cargarSeccion_(idSeccion)` L332  ·  `mostrarError(err)` L410  ·  `mostrarExito(msg)` L416  ·  `escapar_(s)` L422
+`guardarToken_(t)` L9  ·  `borrarToken_()` L13  ·  `tokenGuardado_()` L17  ·  `ocultarPantallasAcceso_()` L44  ·  `mostrarLogin(mensaje)` L50  ·  `mostrarActivar()` L58  ·  `mostrarRecuperar()` L66  ·  `mostrarSeccion(idSeccion)` L80  ·  `mostrarMenuPrincipal()` L94  ·  `entrarConSesion(usuario)` L106  ·  `hacerLogin()` L160  ·  `pedirCodigoActivar()` L175  ·  `confirmarActivar()` L193  ·  `pedirCodigoRecuperar()` L209  ·  `confirmarRecuperar()` L223  ·  `cerrarSesionClick()` L238  ·  `guardarMiUsuario()` L256  ·  `guardarMiPassword()` L269  ·  `cargarTodo()` L291  ·  `cargarRolesYHorarios_()` L302  ·  `marcarCargando_(idSeccion)` L314  ·  `cargarChecklistEquipos_(alTerminar)` L324  ·  `cargarSeccion_(idSeccion)` L339  ·  `mostrarError(err)` L417  ·  `mostrarExito(msg)` L423  ·  `escapar_(s)` L429
 
 ### `js_reportes.html` — 14 funciones
 `cargarReportes_()` L7  ·  `filtrosReporte_()` L27  ·  `rangoRapidoReporte(tipo)` L36  ·  `actualizarDashboard()` L49  ·  `kpiReporte_(titulo, valor, color)` L57  ·  `barrasReporte_(titulo, filas, etiqueta, valor, sufijo)` L62  ·  `pintarDashboard(r)` L73  ·  `htmlComparativaReporte_(c)` L118  ·  `pintarGraficaComparativa_()` L151  ·  `descargarBlobReporte_(blob, nombre)` L168  ·  `base64ABlobReporte_(b64, tipo)` L176  ·  `estadoExportacion_(msg, url)` L182  ·  `exportarReporteExcel()` L187  ·  `exportarReportePdf()` L258
@@ -415,6 +415,9 @@ Pendiente ──tomar──► En proceso ──completar──► Completada
 | F6 | Caché `COLA_OK_<fecha>` de 6 h solo se invalida para hoy | Cambios de catálogo/extras no refrescan otros días |
 | F7 | ~~No hay repositorio git~~ (resuelto en la Fase 0: GitHub + clasp, etiqueta `estado-V61`) | — |
 | F8 | ~~Tablas de permisos y auditoría sin diseño móvil; botón de menú que se va con el scroll~~ (resuelto: Fase 3 tarjetas, Fase 7 barra fija) | — |
+| F14 | En `ROLES_PERMISOS` hay claves que el código no consulta (`VER_DASHBOARD`, `EXPORTAR_REPORTES`, `REGISTRAR_COMIDA`, `CALIFICAR_TRABAJOS_CIERRE`, `SUBIR_EVIDENCIA_FOTOGRAFICA`, `CARGAR_PENDIENTE_PREVENTIVO`). Reportes usa `PERMISOS_REPORTES_` y "Mi comida" usa EJECUTAR_TAREAS_COLA | Cambiar esos interruptores no tiene efecto; decidir si se conectan o se quitan |
+| F15 | ~~Botones creados al pintar (`btnTomarSiguiente`, `btnCerrarJornada`, `btnVerOcultosCola`, `btnNuevoUsuario`) quedaban visibles para otro perfil que entrara en el mismo navegador~~ (resuelto en Fase 8: `entrarConSesion` los quita) | — |
+| F16 | En la web normal (sin PWA) las tablas antiguas eran más anchas que el celular y empujaban "Salir" fuera de la pantalla | Mitigado en Fase 8: en 820 px o menos cada tarjeta del panel se desplaza por dentro (`#panel .tarjeta{overflow-x:auto}`); en la PWA las tablas ya son tarjetas |
 | F13 | `listarAuditoriaReciente` solo pide sesión, no un permiso: cualquier usuario con sesión puede leer la auditoría si llama la función directamente (el botón del menú sí está restringido) | Exposición de datos de auditoría |
 | F9 | `doPost` no expone cabeceras HTTP y `API_PROHIBIDAS` es una lista negra | Cualquier función global nueva queda callable desde la PWA salvo que se agregue a la lista |
 | F10 | `LOG_AUDITORIA` crece sin límite ni rotación | La hoja se vuelve lenta con el tiempo |
@@ -445,3 +448,20 @@ Pendiente ──tomar──► En proceso ──completar──► Completada
 - **Salto**: omitir una tarea con código autorizado o con solicitud al supervisor.
 - **Snapshot**: paquete de datos que la PWA guarda para trabajar sin internet.
 - **Op**: cambio offline identificado por `op_id`, aplicado una sola vez en `SYNC_LOG`.
+
+---
+
+## 14. Historial de versiones (proyecto de mejoras, nov 2026)
+
+| Versión Apps Script | Etiqueta git | Fase | Cambio |
+|---|---|---|---|
+| 62 | `estado-V61` | 0 | Referencia: código de producción sincronizado con clasp en `apps-script/` (el plan decía V61; la implementación activa estaba en la 62) |
+| 63 | `fase-1-v63` | 1 | `INDICE.md`, `index.html` separado en `vista_*` con `include`, habilidad `bitacora-mm103-mapa` |
+| 64 | `fase-7-v64` | 7 | Barra fija "← Menú principal / Salir", zona segura, aviso de cambios sin subir; PWA `sw.js` 0.6.1 |
+| 65 | `fase-3-v65` | 3 | Permisos y auditoría en tarjetas (≤820 px), filtros y páginas de 20 |
+| 66 | `fase-4-v66` | 4 | Cola sin extras/tickets terminados ni tareas desactivadas (`motivoOcultoEnCola_`), "Ver terminados y ocultos" |
+| 67 | `fase-5-v67` | 5 | `HISTORIAL_TRABAJOS` al cerrar jornada, pantalla Historial, Excel/PDF |
+| 68 | `fase-6-v68` | 6 | Comparativa de tiempos por técnico (Auditoría, Reportes, Excel/PDF), umbral `COMPARATIVA_MIN_REGISTROS` = 2 |
+| 69 | `fase-8-v69` | 8 | Pruebas de cierre por rol; quita botones de otro perfil al cambiar de usuario; tablas antiguas contenidas en celular (web) |
+
+Pendiente: **Fase 2** (recepción de datos de la otra app de Apps Script), pausada hasta tener acceso completo a esa app. Lista de pruebas por rol: `docs/PRUEBAS_FASE8.md`. Pruebas automáticas: `pruebas/README.md`.
