@@ -1,0 +1,194 @@
+<script>
+// MÓDULO js_historial — Historial de trabajos (Fase 5): consulta, páginas de 20 y exportación.
+var HISTORIAL_POR_PAGINA = 20;
+
+function cargarHistorial_() {
+  var p = ESTADO.usuarioActual.permisos;
+  document.getElementById('hi_btnActualizar').classList.toggle('oculto', !p.CARGAR_MODIFICAR_TAREAS);
+  if (!document.getElementById('hi_desde').value) rangoRapidoHistorial('semana', true);
+  buscarHistorial();
+}
+
+function filtrosHistorial_() {
+  return {
+    desde: document.getElementById('hi_desde').value,
+    hasta: document.getElementById('hi_hasta').value,
+    tecnico: document.getElementById('hi_tecnico').value,
+    tipo: document.getElementById('hi_tipo').value,
+    estado: document.getElementById('hi_estado').value,
+    texto: document.getElementById('hi_texto').value.trim()
+  };
+}
+
+function rangoRapidoHistorial(cual, sinBuscar) {
+  var hoy = new Date(), desde, hasta = new Date(hoy);
+  if (cual === 'mes') desde = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+  else if (cual === 'mesAnterior') { desde = new Date(hoy.getFullYear(), hoy.getMonth() - 1, 1); hasta = new Date(hoy.getFullYear(), hoy.getMonth(), 0); }
+  else { desde = new Date(hoy); desde.setDate(desde.getDate() - 7); }
+  document.getElementById('hi_desde').value = fechaLocalIso_(desde);
+  document.getElementById('hi_hasta').value = fechaLocalIso_(hasta);
+  if (!sinBuscar) buscarHistorial();
+}
+
+function limpiarFiltrosHistorial() {
+  ['hi_tecnico', 'hi_tipo', 'hi_estado', 'hi_texto'].forEach(function (id) { document.getElementById(id).value = ''; });
+  rangoRapidoHistorial('semana');
+}
+
+function buscarHistorial() {
+  document.getElementById('hi_resumen').textContent = 'Buscando…';
+  google.script.run.withSuccessHandler(pintarHistorial).withFailureHandler(function (e) {
+    document.getElementById('hi_resumen').textContent = '';
+    mostrarError(e);
+  }).obtenerHistorialTrabajos(TOKEN, filtrosHistorial_());
+}
+
+function llenarSelectHistorial_(id, textoTodos, valores) {
+  var sel = document.getElementById(id), actual = sel.value;
+  sel.innerHTML = '<option value="">' + textoTodos + '</option>' + (valores || []).map(function (v) {
+    return '<option value="' + escapar_(v) + '">' + escapar_(v) + '</option>';
+  }).join('');
+  if ((valores || []).indexOf(actual) !== -1) sel.value = actual;
+}
+
+function pintarHistorial(r) {
+  r = r || { filas: [], opciones: {} };
+  ESTADO.historial = r;
+  ESTADO.historialPagina = 1;
+  llenarSelectHistorial_('hi_tecnico', 'Todos', r.opciones && r.opciones.tecnicos);
+  llenarSelectHistorial_('hi_tipo', 'Todos', r.opciones && r.opciones.tipos);
+  llenarSelectHistorial_('hi_estado', 'Todos', r.opciones && r.opciones.estados);
+  pintarPaginaHistorial_();
+}
+
+function badgeHistorial_(estado) {
+  var c = estado === 'Completado' ? 'activo' : (estado === 'Cancelado' ? 'inactivo' : (estado === 'Saltado' ? 'pausado' : ''));
+  return '<span class="badge ' + c + '">' + escapar_(estado || '') + '</span>';
+}
+
+function fotoHistorial_(url) {
+  return url ? '<a href="' + escapar_(url) + '" target="_blank" rel="noopener">Ver foto</a>' : '';
+}
+
+function pintarPaginaHistorial_() {
+  var r = ESTADO.historial || { filas: [] };
+  var lista = r.filas || [];
+  var paginas = Math.max(1, Math.ceil(lista.length / HISTORIAL_POR_PAGINA));
+  var pagina = Math.min(Math.max(1, ESTADO.historialPagina || 1), paginas);
+  ESTADO.historialPagina = pagina;
+  var inicio = (pagina - 1) * HISTORIAL_POR_PAGINA;
+  var trozo = lista.slice(inicio, inicio + HISTORIAL_POR_PAGINA);
+  var vacio = r.hay_hoja === false
+    ? 'Todavía no hay historial: se llena al cerrar la jornada.'
+    : 'No hay trabajos en el historial con estos filtros.';
+
+  document.getElementById('tbodyHistorial').innerHTML = trozo.map(function (f) {
+    return '<tr><td>' + escapar_(f.fecha_jornada) + '</td><td>' + escapar_(f.tipo) + '</td><td>' + escapar_(f.nombre) +
+      (f.reabierto_veces ? ' <span class="pequeno">(reabierto ' + f.reabierto_veces + ')</span>' : '') + '</td><td>' + badgeHistorial_(f.estado_final) +
+      '</td><td>' + escapar_(f.tecnico_nombre) + '</td><td>' + escapar_(f.minutos_trabajados) + '</td><td>' + escapar_(f.motivo || f.descripcion_realizada) +
+      '</td><td>' + fotoHistorial_(f.foto_evidencia_url) + '</td></tr>';
+  }).join('') || '<tr><td colspan="8" class="pequeno">' + vacio + '</td></tr>';
+
+  document.getElementById('hiTarjetas').innerHTML = trozo.map(function (f) {
+    var detalle = f.motivo || f.descripcion_realizada;
+    return '<div class="hi-tarjeta">' +
+      '<div class="aud-cab"><span class="hi-titulo">' + escapar_(f.nombre) + '</span>' + badgeHistorial_(f.estado_final) + '</div>' +
+      '<div class="pequeno">' + escapar_(f.fecha_jornada) + ' · ' + escapar_(f.tipo) + (f.reabierto_veces ? ' · reabierto ' + f.reabierto_veces : '') + '</div>' +
+      '<div class="aud-detalle"><b>Técnico:</b> ' + escapar_(f.tecnico_nombre || '—') + (f.minutos_trabajados !== '' && f.minutos_trabajados !== undefined ? ' · <b>Min.:</b> ' + escapar_(f.minutos_trabajados) : '') + '</div>' +
+      (detalle ? '<div class="aud-detalle">' + escapar_(detalle) + '</div>' : '') +
+      (f.foto_evidencia_url ? '<div class="aud-detalle">' + fotoHistorial_(f.foto_evidencia_url) + '</div>' : '') +
+      '</div>';
+  }).join('') || '<p class="pequeno">' + vacio + '</p>';
+
+  var res = '';
+  if (lista.length) res = 'Mostrando ' + (inicio + 1) + '–' + (inicio + trozo.length) + ' de ' + r.total + ' trabajos (' + r.filtros.desde + ' al ' + r.filtros.hasta + ').';
+  if (r.truncado) res += ' Hay más de ' + lista.length + ' resultados: acota las fechas para verlos todos.';
+  document.getElementById('hi_resumen').textContent = res;
+  document.getElementById('hiPaginador').innerHTML = paginas > 1
+    ? '<button class="secundario" type="button" ' + (pagina <= 1 ? 'disabled' : '') + ' onclick="cambiarPaginaHistorial(-1)">&larr; Anterior</button>' +
+      '<span class="pequeno">Página ' + pagina + ' de ' + paginas + '</span>' +
+      '<button class="secundario" type="button" ' + (pagina >= paginas ? 'disabled' : '') + ' onclick="cambiarPaginaHistorial(1)">Siguiente &rarr;</button>'
+    : '';
+}
+
+function cambiarPaginaHistorial(delta) {
+  ESTADO.historialPagina = (ESTADO.historialPagina || 1) + delta;
+  pintarPaginaHistorial_();
+  var t = document.getElementById('tarjetaHistorial');
+  if (t && t.scrollIntoView) t.scrollIntoView({ block: 'start' });
+  window.scrollBy(0, -70);
+}
+
+function mensajeHistorial_(html) {
+  document.getElementById('hi_estadoMsg').innerHTML = html || '';
+}
+
+function actualizarHistorialUI() {
+  var btn = document.getElementById('hi_btnActualizar');
+  btn.disabled = true; btn.textContent = 'Archivando…';
+  google.script.run.withSuccessHandler(function (r) {
+    btn.disabled = false; btn.textContent = 'Actualizar historial';
+    mensajeHistorial_('<div class="aviso exito">' + (r && r.archivados ? r.archivados + ' trabajo(s) archivado(s) hasta ' + escapar_(r.hasta) + '.' : 'El historial ya estaba al día.') + '</div>');
+    buscarHistorial();
+  }).withFailureHandler(function (e) {
+    btn.disabled = false; btn.textContent = 'Actualizar historial';
+    mostrarError(e);
+  }).actualizarHistorialTrabajos(TOKEN);
+}
+
+/** Carga SheetJS (el mismo que usa el resto de la app) solo cuando hace falta. */
+function asegurarXlsxHistorial_(ok, mal) {
+  if (window.XLSX) { ok(); return; }
+  var s = document.createElement('script');
+  s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+  s.onload = function () { window.XLSX ? ok() : mal(); };
+  s.onerror = mal;
+  document.head.appendChild(s);
+}
+
+function exportarHistorialExcel() {
+  var btn = document.getElementById('hi_btnExcel');
+  btn.disabled = true; btn.textContent = 'Generando Excel…';
+  var listo = function () { btn.disabled = false; btn.textContent = '⬇ Descargar Excel'; };
+  asegurarXlsxHistorial_(function () {
+    google.script.run.withSuccessHandler(function (r) {
+      try {
+        var columnas = ['Fecha', 'Tipo', 'Registro', 'Trabajo', 'Estado final', 'Motivo', 'Descripción', 'Técnico', 'Inicio', 'Fin', 'Minutos', 'Foto', 'Veces reabierto'];
+        var fmt = function (v) { if (!v) return ''; var d = new Date(v); return isNaN(d.getTime()) ? String(v) : d.toLocaleString('es-MX'); };
+        var filas = r.filas.map(function (f) {
+          return [f.fecha_jornada, f.tipo, f.registro_id, f.nombre, f.estado_final, f.motivo, f.descripcion_realizada, f.tecnico_nombre,
+            fmt(f.hora_inicio), fmt(f.hora_fin), f.minutos_trabajados, f.foto_evidencia_url, f.reabierto_veces];
+        });
+        var libro = XLSX.utils.book_new();
+        var ws = XLSX.utils.aoa_to_sheet([columnas].concat(filas));
+        ws['!cols'] = [12, 18, 13, 40, 16, 30, 30, 22, 18, 18, 9, 30, 9].map(function (w) { return { wch: w }; });
+        if (filas.length) ws['!autofilter'] = { ref: XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: filas.length, c: columnas.length - 1 } }) };
+        XLSX.utils.book_append_sheet(libro, ws, 'Historial');
+        var nombre = 'Historial de trabajos MM103 ' + r.filtros.desde + ' a ' + r.filtros.hasta + '.xlsx';
+        var b64 = XLSX.write(libro, { bookType: 'xlsx', type: 'base64' });
+        descargarBlobReporte_(base64ABlobReporte_(b64, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'), nombre);
+        mensajeHistorial_('<div class="aviso exito">Excel generado. Guardando copia en Drive…</div>');
+        google.script.run.withSuccessHandler(function (res) {
+          mensajeHistorial_('<div class="aviso exito">Excel descargado y archivado en Drive (carpeta "MM103 - Reportes de Mantenimiento"). <a href="' + escapar_(res.url) + '" target="_blank">Abrir copia en Drive</a></div>');
+        }).withFailureHandler(function () {
+          mensajeHistorial_('<div class="aviso exito">Excel descargado. No se pudo guardar la copia en Drive.</div>');
+        }).guardarExcelReporteEnDrive(TOKEN, b64, nombre);
+      } catch (e) { mostrarError('Error al armar el Excel: ' + e.message); }
+      listo();
+    }).withFailureHandler(function (e) { listo(); mostrarError(e); }).obtenerHistorialParaExcel(TOKEN, filtrosHistorial_());
+  }, function () { listo(); mostrarError('No se pudo cargar el generador de Excel. Revisa tu conexión e inténtalo de nuevo.'); });
+}
+
+function exportarHistorialPdf() {
+  var btn = document.getElementById('hi_btnPdf');
+  btn.disabled = true; btn.textContent = 'Generando PDF…';
+  google.script.run.withSuccessHandler(function (res) {
+    btn.disabled = false; btn.textContent = '⬇ Descargar PDF';
+    descargarBlobReporte_(base64ABlobReporte_(res.base64, 'application/pdf'), res.nombre);
+    mensajeHistorial_('<div class="aviso exito">PDF descargado' + (res.url ? ' y archivado en Drive. <a href="' + escapar_(res.url) + '" target="_blank">Abrir copia en Drive</a>' : '.') + '</div>');
+  }).withFailureHandler(function (e) {
+    btn.disabled = false; btn.textContent = '⬇ Descargar PDF';
+    mostrarError(e);
+  }).generarHistorialPdf(TOKEN, filtrosHistorial_());
+}
+</script>

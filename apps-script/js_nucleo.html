@@ -71,7 +71,7 @@ function mostrarRecuperar() {
   document.getElementById('pantallaRecuperar').classList.remove('oculto');
 }
 
-var SECCIONES_PRINCIPALES = ['tarjetaMiCuenta','tarjetaUsuarios','tarjetaPermisos','tarjetaHorarios','tarjetaAuditoria','tarjetaCatalogoTareas','tarjetaTrabajosExtra','tarjetaGasAdmin','tarjetaGasTecnico','tarjetaColaHoy','tarjetaChecklistEquipos','tarjetaAlmacen','tarjetaTickets','tarjetaComida','tarjetaReportes'];
+var SECCIONES_PRINCIPALES = ['tarjetaMiCuenta','tarjetaUsuarios','tarjetaPermisos','tarjetaHorarios','tarjetaAuditoria','tarjetaCatalogoTareas','tarjetaTrabajosExtra','tarjetaGasAdmin','tarjetaGasTecnico','tarjetaColaHoy','tarjetaChecklistEquipos','tarjetaAlmacen','tarjetaTickets','tarjetaComida','tarjetaReportes','tarjetaHistorial'];
 
 /** Sección abierta en este momento (null = menú principal). Se usa para cargar sus datos solo cuando se abre. */
 var SECCION_ACTUAL = null;
@@ -120,7 +120,7 @@ function entrarConSesion(usuario) {
   // técnico iniciara sesión).
   ['tarjetaAltaUsuarios', 'menuBtnUsuarios', 'menuBtnAuditoria', 'menuBtnPermisos', 'menuBtnHorarios',
   'menuBtnCatalogoTareas', 'menuBtnTrabajosExtra', 'menuBtnGas', 'menuBtnColaHoy', 'menuBtnChecklistEquipos',
-  'menuBtnAlmacen', 'menuBtnTickets', 'menuBtnComida', 'menuBtnReportes'].forEach(function (id) {
+  'menuBtnAlmacen', 'menuBtnTickets', 'menuBtnComida', 'menuBtnReportes', 'menuBtnHistorial'].forEach(function (id) {
     var el = document.getElementById(id);
     if (el) el.classList.add('oculto');
   });
@@ -140,7 +140,10 @@ function entrarConSesion(usuario) {
   if (permisos.REGISTRAR_ENTRADA_MATERIAL || permisos.REGISTRAR_SALIDA_MATERIAL || permisos.REGISTRAR_CONSUMO_MATERIAL || permisos.AUDITORIA_INVENTARIO) document.getElementById('menuBtnAlmacen').classList.remove('oculto');
   if (permisos.ENVIAR_TICKET || permisos.ATENDER_TICKET || permisos.CARGAR_MODIFICAR_TAREAS) document.getElementById('menuBtnTickets').classList.remove('oculto');
   if (permisos.EJECUTAR_TAREAS_COLA) document.getElementById('menuBtnComida').classList.remove('oculto');
-  if (permisos.ALTA_BAJA_USUARIOS || permisos.CARGAR_MODIFICAR_TAREAS || permisos.AUDITORIA_INVENTARIO || permisos.GENERAR_CODIGO_SALTO) document.getElementById('menuBtnReportes').classList.remove('oculto');
+  if (permisos.ALTA_BAJA_USUARIOS || permisos.CARGAR_MODIFICAR_TAREAS || permisos.AUDITORIA_INVENTARIO || permisos.GENERAR_CODIGO_SALTO) {
+    document.getElementById('menuBtnReportes').classList.remove('oculto');
+    document.getElementById('menuBtnHistorial').classList.remove('oculto');
+  }
 
   mostrarMenuPrincipal();
   cargarTodo();
@@ -392,6 +395,9 @@ function cargarSeccion_(idSeccion) {
     break;
     case 'tarjetaReportes':
     cargarReportes_();
+    break;
+    case 'tarjetaHistorial':
+    cargarHistorial_();
     break;
     case 'tarjetaComida':
     if (p.EJECUTAR_TAREAS_COLA) {

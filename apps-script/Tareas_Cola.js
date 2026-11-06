@@ -1241,7 +1241,13 @@ function ejecutarCierreJornada_(fechaCierre, idUsuarioActor, correoActor) {
   registrarAuditoria_(idUsuarioActor || '', correoActor || '(sistema)', 'SYSTEM_DAY_ROLLOVER', HOJAS.COLA, fechaCierre,
     (aTrasladar.length - duplicadas) + ' registro(s) trasladados' + (duplicadas ? ', ' + duplicadas + ' duplicado(s) cerrados' : ''), 'a ' + fechaSiguiente);
 
-  return { ok: true, trasladados: aTrasladar.length - duplicadas, duplicados_cerrados: duplicadas, fecha_cierre: fechaCierre, fecha_siguiente: fechaSiguiente };
+  // Fase 5: lo terminado de los días ya cerrados se copia a HISTORIAL_TRABAJOS (no se borra nada).
+  // Si el archivado fallara, el cierre de jornada ya quedó hecho y se reintenta en el siguiente cierre.
+  var historial = null;
+  try { historial = archivarHistorialHasta_(fechaCierre, idUsuarioActor, correoActor); }
+  catch (errHist) { console.error('Historial de trabajos: ' + errHist); historial = { ok: false, error: String(errHist && errHist.message || errHist) }; }
+
+  return { ok: true, trasladados: aTrasladar.length - duplicadas, duplicados_cerrados: duplicadas, fecha_cierre: fechaCierre, fecha_siguiente: fechaSiguiente, historial: historial };
 }
 
 /** Cierre manual, disparado por un supervisor/administrador desde la app. */
