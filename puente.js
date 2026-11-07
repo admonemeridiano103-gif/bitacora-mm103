@@ -14,7 +14,7 @@
   if (window.__MM103_PUENTE) return;
   window.__MM103_PUENTE = true;
 
-  var VERSION = '0.6.0';
+  var VERSION = '0.6.2';
   var API_URL = 'https://script.google.com/macros/s/AKfycbxzVSB0hEQgd9TW01NhmVffLJyioYIg0cRhdRcLxAbYOcT8hCvG-8yA2vi6bA8g936cRw/exec';
 
   var SIN_TOKEN = { login: 1, solicitarCodigoAcceso: 1, crearCredenciales: 1, restablecerPassword: 1, obtenerPermisos: 1 };
@@ -815,6 +815,7 @@
   }
   // Mosaico "Lecturas de medidores" en el menú principal (módulo lecturas.js, se carga al abrirlo)
   function mosaicoLecturas() {
+    return; // Fase 2: las lecturas pasaron al Probador OCR; el boton lo pone la pantalla 'Lecturas y gas (Probador)'.
     var menu = document.querySelector('.cuadricula-menu');
     if (!menu || menu.querySelector('.mm-lecturas') || !window.TOKEN) return;
     var b = document.createElement('button'); b.type = 'button'; b.className = 'boton-menu mm-lecturas';

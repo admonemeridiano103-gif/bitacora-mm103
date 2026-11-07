@@ -37,6 +37,11 @@ function asegurarHojasGas_() {
 
 /** El módulo está encendido cuando al menos un rol tiene CONTROL_CIERRE_GAS en ROLES_PERMISOS. */
 function moduloGasActivo_() {
+  // FASE 2 (2026-11-07): el control de gas y las lecturas pasaron al Probador OCR ("Lectura y cierre de servicios").
+  // Interruptor fijo: el modulo queda apagado sin importar los permisos. Los datos y el codigo se conservan.
+  // Para reactivarlo, quitar la linea siguiente.
+  return false;
+  /* eslint-disable no-unreachable */
   var tabla = leerTabla_(HOJAS.ROLES);
   var activo = false;
   tabla.filas.forEach(function (f) {

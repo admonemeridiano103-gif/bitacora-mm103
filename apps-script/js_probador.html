@@ -1,0 +1,31 @@
+<script>
+// MÓDULO js_probador — enlace al Probador OCR y resumen de solo lectura (Fase 2)
+var PROBADOR_URL_ACTUAL = '';
+function abrirProbadorUI() {
+  if (!PROBADOR_URL_ACTUAL) { document.getElementById('probador_aviso').textContent = 'El enlace todavía no está configurado. Avísale al administrador.'; return; }
+  window.open(PROBADOR_URL_ACTUAL, '_blank', 'noopener');
+}
+function probadorLista_(obj) {
+  var k = Object.keys(obj || {});
+  return k.length ? k.map(function (n) { return escapar_(n) + ': <b>' + obj[n] + '</b>'; }).join(' · ') : 'sin datos';
+}
+function pintarProbador_(r) {
+  PROBADOR_URL_ACTUAL = r.url || '';
+  var aviso = document.getElementById('probador_aviso'), cont = document.getElementById('probador_resumen');
+  document.getElementById('probador_abrir').disabled = !PROBADOR_URL_ACTUAL;
+  aviso.textContent = PROBADOR_URL_ACTUAL ? '' : 'El enlace todavía no está configurado.';
+  if (!r.ok) { cont.innerHTML = '<p class="pequeno">' + escapar_(r.error || 'Sin datos') + '</p>'; return; }
+  cont.innerHTML =
+    '<h3>Lecturas del periodo' + (r.periodo ? ' (' + escapar_(r.periodo.servicio) + ' ' + escapar_(r.periodo.mes) + ')' : '') + '</h3>' +
+    '<p>Total: <b>' + r.lecturas.total + '</b></p><p class="pequeno">' + probadorLista_(r.lecturas.por_servicio) + '</p><p class="pequeno">' + probadorLista_(r.lecturas.por_estado) + '</p>' +
+    '<h3>Gas: cierre/apertura</h3><p class="pequeno">Unidades: <b>' + r.gas.unidades + '</b> · ' + probadorLista_(r.gas.por_estado) + '</p>' +
+    '<h3>Prórrogas</h3><p class="pequeno">' + probadorLista_(r.prorrogas) + '</p>';
+}
+function cargarProbadorUI() {
+  document.getElementById('probador_resumen').innerHTML = '<p class="pequeno">Cargando…</p>';
+  google.script.run.withSuccessHandler(pintarProbador_).withFailureHandler(function (e) {
+    document.getElementById('probador_resumen').innerHTML = '';
+    mostrarError(e);
+  }).obtenerResumenProbador(TOKEN);
+}
+</script>

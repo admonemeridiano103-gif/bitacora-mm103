@@ -71,7 +71,7 @@ function mostrarRecuperar() {
   document.getElementById('pantallaRecuperar').classList.remove('oculto');
 }
 
-var SECCIONES_PRINCIPALES = ['tarjetaMiCuenta','tarjetaUsuarios','tarjetaPermisos','tarjetaHorarios','tarjetaAuditoria','tarjetaCatalogoTareas','tarjetaTrabajosExtra','tarjetaGasAdmin','tarjetaGasTecnico','tarjetaColaHoy','tarjetaChecklistEquipos','tarjetaAlmacen','tarjetaTickets','tarjetaComida','tarjetaReportes','tarjetaHistorial'];
+var SECCIONES_PRINCIPALES = ['tarjetaMiCuenta','tarjetaUsuarios','tarjetaPermisos','tarjetaHorarios','tarjetaAuditoria','tarjetaCatalogoTareas','tarjetaTrabajosExtra','tarjetaGasAdmin','tarjetaGasTecnico','tarjetaProbador','tarjetaColaHoy','tarjetaChecklistEquipos','tarjetaAlmacen','tarjetaTickets','tarjetaComida','tarjetaReportes','tarjetaHistorial'];
 
 /** Sección abierta en este momento (null = menú principal). Se usa para cargar sus datos solo cuando se abre. */
 var SECCION_ACTUAL = null;
@@ -119,7 +119,7 @@ function entrarConSesion(usuario) {
   // ejemplo, si un administrador probó la app en este mismo navegador antes de que un
   // técnico iniciara sesión).
   ['tarjetaAltaUsuarios', 'menuBtnUsuarios', 'menuBtnAuditoria', 'menuBtnPermisos', 'menuBtnHorarios',
-  'menuBtnCatalogoTareas', 'menuBtnTrabajosExtra', 'menuBtnGas', 'menuBtnColaHoy', 'menuBtnChecklistEquipos',
+  'menuBtnCatalogoTareas', 'menuBtnTrabajosExtra', 'menuBtnGas', 'menuBtnProbador', 'menuBtnColaHoy', 'menuBtnChecklistEquipos',
   'menuBtnAlmacen', 'menuBtnTickets', 'menuBtnComida', 'menuBtnReportes', 'menuBtnHistorial'].forEach(function (id) {
     var el = document.getElementById(id);
     if (el) el.classList.add('oculto');
@@ -141,7 +141,8 @@ function entrarConSesion(usuario) {
   if (permisos.CONFIGURAR_HORARIOS || permisos.ALTA_BAJA_USUARIOS) document.getElementById('menuBtnHorarios').classList.remove('oculto');
   if (permisos.CARGAR_MODIFICAR_TAREAS) document.getElementById('menuBtnCatalogoTareas').classList.remove('oculto');
   if (permisos.CARGAR_MODIFICAR_TAREAS || permisos.EJECUTAR_TAREAS_COLA) document.getElementById('menuBtnTrabajosExtra').classList.remove('oculto');
-  if (permisos.CONTROL_CIERRE_GAS) document.getElementById('menuBtnGas').classList.remove('oculto');
+  // Fase 2: el control de gas vive en el Probador OCR; el boton propio queda oculto y se muestra el enlace.
+  document.getElementById('menuBtnProbador').classList.remove('oculto');
   if (permisos.EJECUTAR_TAREAS_COLA || permisos.CARGAR_MODIFICAR_TAREAS || permisos.GENERAR_CODIGO_SALTO) document.getElementById('menuBtnColaHoy').classList.remove('oculto');
   if (permisos.REGISTRAR_LECTURA_EQUIPO || permisos.CARGAR_MODIFICAR_TAREAS) document.getElementById('menuBtnChecklistEquipos').classList.remove('oculto');
   if (permisos.REGISTRAR_ENTRADA_MATERIAL || permisos.REGISTRAR_SALIDA_MATERIAL || permisos.REGISTRAR_CONSUMO_MATERIAL || permisos.AUDITORIA_INVENTARIO) document.getElementById('menuBtnAlmacen').classList.remove('oculto');
@@ -365,6 +366,9 @@ function cargarSeccion_(idSeccion) {
     break;
     case 'tarjetaGasAdmin':
     if (p.CONTROL_CIERRE_GAS) cargarGasAdmin();
+    break;
+    case 'tarjetaProbador':
+    cargarProbadorUI();
     break;
     case 'tarjetaTrabajosExtra':
     if (p.CARGAR_MODIFICAR_TAREAS || p.EJECUTAR_TAREAS_COLA) {
