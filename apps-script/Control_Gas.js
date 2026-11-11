@@ -297,7 +297,7 @@ function gasTareaVista_(registroId) {
   var items = gasPendientesProbador_(fechaHoy_(), true).map(function (x) {
     return { clave: x.clave, torre: x.torre, departamento: x.departamento, accion: x.accion, hecho: false };
   });
-  return { registro_id: registroId, items: items, siguiente: items.length ? items[0].clave : null, total: items.length, hechos: 0 };
+  return { registro_id: registroId, items: items, siguiente: items.length ? items[0].clave : null, total: items.length, hechos: 0, probador_url: urlProbador_() };
 }
 
 function obtenerTareaGas(token, registroId) {
@@ -309,58 +309,23 @@ function obtenerTareaGas(token, registroId) {
   return gasTareaVista_(registroId);
 }
 
-/**
- * Valida un departamento con foto: guarda la evidencia y registra en el Probador que quedó Cerrado/Abierto.
- * Debe ser el siguiente de la lista (orden obligatorio). Si el Probador ya no lo tiene pendiente, responde sin error (reintento).
- */
-function registrarAccionGas(token, registroId, clave, fotoBase64, fotoMime, fotoNombre) {
-  var usuario = requierePermiso_(token, PERMISOS.EJECUTAR_TAREAS_COLA);
-  var tarea = buscarFilaPorValor_(HOJAS.COLA, 'registro_id', registroId, false);
-  if (!tarea) throw new Error('No existe el registro de cola "' + registroId + '".');
-  var obj = tarea.fila.obj;
-  if (String(obj.tipo_origen) !== 'Gas') throw new Error('Ese registro de cola no es la tarea de gas.');
-  if (obj.estado !== 'En proceso') throw new Error('Esta tarea no está en proceso.');
-  if (obj.usuario_asignado_actual !== usuario.id_usuario) throw new Error('Esta tarea está asignada a otro usuario.');
-  var candado = LockService.getScriptLock();
-  candado.waitLock(30000);
-  try {
-    var vista = gasTareaVista_(registroId);
-    var item = null;
-    vista.items.forEach(function (x) { if (x.clave === clave) item = x; });
-    if (!item) { vista.ok = true; vista.duplicado = true; return vista; } // ya validado (reintento o lo hizo otra persona)
-    if (vista.siguiente !== clave) throw new Error('Debes recorrer las unidades en orden. Sigue: ' + vista.siguiente + '.');
-    if (!fotoBase64) throw new Error('Debes adjuntar la foto de evidencia de esta unidad.');
-    if (String(fotoBase64).length > 7000000) throw new Error('La imagen es demasiado grande. Usa una foto más ligera.');
-    var blob = Utilities.newBlob(Utilities.base64Decode(fotoBase64), fotoMime || 'image/jpeg', fotoNombre || (clave + '.jpg'));
-    var archivo = carpetaFotosEvidenciaTareas_().createFile(blob);
-    archivo.setName(registroId + ' - GAS ' + clave + ' - ' + item.accion + ' - ' + new Date().getTime());
-    archivo.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-    var url = 'https://drive.google.com/thumbnail?sz=w500&id=' + archivo.getId();
-    registrarEvidenciaFoto_(usuario.id_usuario, 'GAS_DEPTO', registroId + '|' + clave, url);
-    marcarGasProbador_(clave, item.accion === 'Cerrar' ? 'CERRADO' : 'ABIERTO', usuario,
-      'Validado con foto desde la Bitácora MM103 (' + registroId + '): ' + url,
-      { unidad: item.torre + ' ' + item.departamento, servicio: 'gas', estadoDespues: item.accion === 'Cerrar' ? 'CERRADO' : 'ABIERTO', origen: 'Bitácora MM103', registro: registroId, foto: url });
-    registrarAuditoria_(usuario.id_usuario, usuario.correo, 'EJECUTAR_GAS', 'PROBADOR_CierreEstado', clave, '', item.accion);
-    var nueva = gasTareaVista_(registroId); // vuelve al paso 1: la siguiente unidad pendiente según el Probador
-    nueva.ok = true;
-    return nueva;
-  } finally {
-    candado.releaseLock();
-  }
+/** Minutos y hora de fin de la tarea de gas: desde que se tomó hasta la última validación con foto en el Probador (si no hay, hasta ahora). */
+function gasTiempoTarea_(obj, ultimaValidacionMs, ahoraMs) {
+  var inicio = obj.hora_inicio ? new Date(obj.hora_inicio).getTime() : NaN;
+  var fin = (ultimaValidacionMs && !isNaN(inicio) && ultimaValidacionMs >= inicio) ? ultimaValidacionMs : ahoraMs;
+  var seg = isNaN(inicio) ? 0 : Math.max(0, Math.round((fin - inicio) / 1000));
+  return { fin: fin, minutos: Math.max(1, Math.round((seg + (Number(obj.tiempo_acumulado_segundos) || 0)) / 60)) };
 }
 
-/** Cierra la tarea de gas en la cola (llamada desde completarTarea). Exige que no quede ningún departamento pendiente. */
+/** Cierra la tarea de gas en la cola (completarTarea o cierre automático). Exige que el Probador no tenga unidades pendientes. */
 function completarTareaGas_(usuario, registroId, obj, descripcion) {
-  var ahora = new Date();
-  var inicio = obj.hora_inicio ? new Date(obj.hora_inicio) : null;
-  var seg = (inicio && !isNaN(inicio.getTime())) ? Math.max(0, Math.round((ahora - inicio) / 1000)) : 0;
-  var minutos = Math.max(1, Math.round((seg + (Number(obj.tiempo_acumulado_segundos) || 0)) / 60));
   var pend = gasPendientesProbador_(fechaHoy_(), true); // si no se puede leer el Probador, lanza error y no se cierra
-  if (pend.length) throw new Error('Faltan ' + pend.length + ' unidad(es) por validar con foto. Siguiente: ' + pend[0].torre + ' ' + pend[0].departamento + '.');
+  if (pend.length) throw new Error('Faltan ' + pend.length + ' unidad(es) por validar en Lectura y cierre de servicios. Siguiente: ' + pend[0].torre + ' ' + pend[0].departamento + '.');
+  var t = gasTiempoTarea_(obj, gasUltimaValidacionProbador_(), new Date().getTime());
   var enc = buscarFilaPorValor_(HOJAS.COLA, 'registro_id', registroId, false);
   escribirCamposFila_(enc, {
-    estado: 'Completada', hora_fin: ahora, tiempo_total_minutos: minutos,
-    descripcion_realizada: descripcion || 'Cierre/Apertura de gas: todas las unidades validadas con foto'
+    estado: 'Completada', hora_fin: new Date(t.fin), tiempo_total_minutos: t.minutos,
+    descripcion_realizada: descripcion || 'Cierre/Apertura de gas: todas las unidades validadas con foto en Lectura y cierre de servicios'
   });
   var extras = leerTabla_(HOJAS.EXTRA);
   extras.filas.forEach(function (f) {
@@ -368,6 +333,21 @@ function completarTareaGas_(usuario, registroId, obj, descripcion) {
   });
   registrarAuditoria_(usuario.id_usuario, usuario.correo, 'COMPLETAR_TAREA_GAS', HOJAS.COLA, registroId, 'En proceso', 'Completada');
   return { ok: true, foto_url: '', cola: construirColaDelDia_(fechaHoy_()) };
+}
+
+/**
+ * Si la tarea de gas de hoy está En proceso y el Probador ya no tiene unidades pendientes, la completa sola
+ * (lectura con caché de 60 s). Se llama al listar la cola; nunca rompe la lista.
+ */
+function cerrarGasSiSinPendientes_(fecha) {
+  var fila = leerTabla_(HOJAS.COLA).filas.filter(function (f) {
+    return soloFecha_(f.obj.fecha) === fecha && f.obj.tipo_origen === 'Gas' && f.obj.estado === 'En proceso';
+  })[0];
+  if (!fila) return;
+  try {
+    if (gasPendientesProbador_(fecha).length) return;
+    completarTareaGas_({ id_usuario: fila.obj.usuario_asignado_actual, correo: '(cierre automático)' }, fila.obj.registro_id, fila.obj, '');
+  } catch (e) { console.warn('Cierre automático de gas: ' + e); }
 }
 
 // --- Inserción en la cola (mismo patrón que los trabajos programados) ---

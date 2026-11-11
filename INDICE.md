@@ -486,3 +486,10 @@ Pendiente: **Fase 2** (recepción de datos de la otra app de Apps Script), pausa
 - Flujo del técnico: (1) la app muestra la siguiente unidad con su acción (Abrir/Cerrar); (2) foto obligatoria; (3) `registrarAccionGas` guarda la evidencia y llama a `marcarGasProbador_` (`Enlace_Probador.js`), que escribe en la hoja del Probador (`CierreEstado` + `Bitacora`, a nombre del técnico; el Probador solo acepta token de Google, por eso se escribe directo); (4) se vuelve a leer el Probador (`gasPendientesProbador_(hoy, true)`) y aparece la siguiente unidad. Orden obligatorio; un reintento de una unidad ya validada responde sin error.
 - `completarTareaGas_` exige que el Probador ya no tenga unidades pendientes (si no se puede leer, no cierra).
 - `js_gas.html`: `pintarGasTecnico` y `confirmarAccionGasUI` vuelven a ser interactivos. `pruebas/sim_gas_probador.js`: 13 casos.
+
+## Cambios 2026-11-11 (gas se trabaja en el Probador)
+
+- Flujo: el técnico toma la tarea de gas en la Bitácora (corre el tiempo), abre el Probador (menú: ahora también para `EJECUTAR_TAREAS_COLA`), valida cada unidad con foto allá (`cierreMarcar` del Probador exige foto si la unidad estaba pendiente; el enlace queda en `Nota`; al terminar muestra "Volver a la Bitácora") y la Bitácora cierra la tarea sola: `cerrarGasSiSinPendientes_` (desde `listarColaDelDia`) → `completarTareaGas_`, con `gasTiempoTarea_` (tomar → última validación, `gasUltimaValidacionProbador_`).
+- Se quitaron `registrarAccionGas` y `marcarGasProbador_` (la foto ya no se toma en la Bitácora). `PROBADOR_URL_POR_DEFECTO` apunta ahora a la implementación vigente "Aplicación de servicios" (la anterior era una versión vieja).
+- Probador publicado como versión 15 de su proyecto; su código vive en `codigo/probador-ocr/` (fuera de este repositorio).
+- `pruebas/sim_gas_probador.js`: 13 casos (evaluación y tiempo).

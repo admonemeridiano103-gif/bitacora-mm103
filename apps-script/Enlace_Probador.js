@@ -4,7 +4,7 @@
  * Ejecutar a mano desde el editor: experimentoEnlaceProbador(). El resultado queda en Registro de ejecución.
  */
 var PROBADOR_SHEET_ID = '1eaqB0TXHblsG5iCqBTd7FBUGWtxG-srEB0B9VoUDu-o';
-var PROBADOR_URL_POR_DEFECTO = 'https://script.google.com/macros/s/AKfycbwbIxbRDfycLXiKFqulvHrltowyImQQP7WrhNPjFKpT3B8CcZTgfcF8zAxfOyEB97bI/exec';
+var PROBADOR_URL_POR_DEFECTO = 'https://script.google.com/macros/s/AKfycby93-Scc_ZiwNLwtH_VVEdL0J-TvdyC7ilbo-fLPheUb6H-oLufn6dtew2LK_SlEFCj/exec';
 var PROBADOR_TABLAS = ['Usuarios', 'Medidores', 'Periodos', 'Lecturas', 'CierreImportes', 'CierreMontos', 'CierreEstado', 'CierreProrrogas', 'CierreSolicitudes', 'Bitacora'];
 
 function experimentoEnlaceProbador() {
@@ -60,7 +60,8 @@ function contarPor_(filas, campo) {
 
 /** Resumen sin datos personales (sin correos ni fotos). Cache de 5 minutos. */
 function obtenerResumenProbador(token) {
-  requierePermiso_(token, PERMISOS.CONTROL_CIERRE_GAS);
+  var usuario = requiereSesion_(token);
+  if (!usuarioTienePermiso_(usuario, PERMISOS.CONTROL_CIERRE_GAS) && !usuarioTienePermiso_(usuario, PERMISOS.EJECUTAR_TAREAS_COLA)) throw new Error('Tu perfil no tiene acceso al Probador.');
   return resumenProbador_();
 }
 
@@ -145,37 +146,20 @@ function gasPendientesProbador_(hoy, fresco) {
   return lista;
 }
 
-/** Agrega una fila al final de una hoja del Probador (texto plano, igual que su agregarFilas_). */
-function anexarFilaProbador_(sh, fila) {
-  var inicio = sh.getLastRow() + 1, max = sh.getMaxRows();
-  if (max < inicio) {
-    sh.insertRowsAfter(max, inicio - max);
-    sh.getRange(max + 1, 1, inicio - max, fila.length).setNumberFormat('@');
-  }
-  sh.getRange(inicio, 1, 1, fila.length).setValues([fila]);
-}
+/** Dirección de la app Lectura y cierre de servicios (Propiedades del script o la de por defecto). */
+function urlProbador_() { return PropertiesService.getScriptProperties().getProperty('PROBADOR_URL') || PROBADOR_URL_POR_DEFECTO; }
 
-/**
- * Registra en el Probador que una unidad de gas quedó CERRADA o ABIERTA (equivale a su cierreMarcar): actualiza
- * CierreEstado y deja la huella en su hoja Bitacora, a nombre del técnico de la Bitácora. El Probador solo acepta
- * llamadas con token de Google de cada persona, así que aquí se escribe directo en su hoja.
- */
-function marcarGasProbador_(clave, estado, usuario, nota, detalle) {
-  if (estado !== 'CERRADO' && estado !== 'ABIERTO') throw new Error('El estado debe ser CERRADO o ABIERTO.');
-  var ss = SpreadsheetApp.openById(PROBADOR_SHEET_ID);
-  var shE = ss.getSheetByName('CierreEstado'), shB = ss.getSheetByName('Bitacora');
-  if (!shE || !shB) throw new Error('No se encontró CierreEstado o Bitacora en la hoja del Probador.');
-  var ts = Utilities.formatDate(new Date(), 'America/Mexico_City', 'yyyy-MM-dd HH:mm:ss');
-  var correo = String(usuario.correo || '').trim().toLowerCase(), nombre = String(usuario.nombre_completo || correo);
-  nota = String(nota || '').substring(0, 300);
-  var vals = shE.getDataRange().getValues(), fila = 0;
-  for (var i = 1; i < vals.length; i++) { if (vals[i][0] === 'gas' && String(vals[i][1]) === clave) { fila = i + 1; break; } }
-  if (fila) shE.getRange(fila, 3, 1, 5).setValues([[estado, ts, correo, nombre, nota]]); // conserva el Comentario (columna 8)
-  else anexarFilaProbador_(shE, ['gas', clave, estado, ts, correo, nombre, nota, '']);
-  anexarFilaProbador_(shB, [Utilities.getUuid().substring(0, 8), ts, correo, nombre, String(usuario.rol || ''), 'cierre_marcar', '', 'gas|' + clave,
-    JSON.stringify(detalle || {})]);
-  CacheService.getScriptCache().remove('PROBADOR_GAS_PEND');
-  CacheService.getScriptCache().remove('PROBADOR_RESUMEN');
+/** Hora (ms) de la última validación de gas en el Probador, o 0 si no hay. */
+function gasUltimaValidacionProbador_() {
+  var max = 0;
+  try {
+    filasProbador_(SpreadsheetApp.openById(PROBADOR_SHEET_ID), 'CierreEstado').forEach(function (f) {
+      if (f.Servicio !== 'gas' || !f.FechaHora) return;
+      var ms = Utilities.parseDate(String(f.FechaHora), 'America/Mexico_City', 'yyyy-MM-dd HH:mm:ss').getTime();
+      if (ms > max) max = ms;
+    });
+  } catch (err) { console.warn('Última validación del Probador: ' + err); }
+  return max;
 }
 
 function probarResumenProbador() { var r = resumenProbador_(); Logger.log(JSON.stringify(r, null, 1)); return r.ok; }

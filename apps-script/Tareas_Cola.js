@@ -465,7 +465,7 @@ function listarColaDelDia(token, fecha, incluirOcultos) {
   if (!tienePermiso) throw new Error('Tu perfil no tiene acceso a la cola de trabajo diario.');
 
   fecha = fecha || fechaHoy_();
-  if (fecha === fechaHoy_()) asegurarColaDelDia_(fecha);
+  if (fecha === fechaHoy_()) { asegurarColaDelDia_(fecha); cerrarGasSiSinPendientes_(fecha); }
   // "Ver terminados y ocultos" (Fase 4): solo para quien puede volver a abrir trabajos.
   var verOcultos = !!incluirOcultos && (usuarioTienePermiso_(usuario, PERMISOS.ENVIAR_TICKET) || usuarioTienePermiso_(usuario, PERMISOS.CARGAR_MODIFICAR_TAREAS));
   return construirColaDelDia_(fecha, { incluirOcultos: verOcultos });
