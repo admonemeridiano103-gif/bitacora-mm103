@@ -480,3 +480,9 @@ Pendiente: **Fase 2** (recepción de datos de la otra app de Apps Script), pausa
 - `Reapertura.js`: también reabre un ticket atendido desde la pantalla de tickets (renglón aún Pendiente); en tickets la foto es opcional, el motivo sigue obligatorio.
 - `js_trabajos.html`: el ticket terminado muestra "Atendido" y solo el botón "Volver a abrir". `puente.js`/`sw.js` 0.6.4: el modo sin internet marca igual el ticket atendido.
 - `pruebas/sim_cola.js`: expectativas actualizadas (21 casos).
+
+## Cambios 2026-11-11 (gas con foto y validación en el Probador)
+
+- Flujo del técnico: (1) la app muestra la siguiente unidad con su acción (Abrir/Cerrar); (2) foto obligatoria; (3) `registrarAccionGas` guarda la evidencia y llama a `marcarGasProbador_` (`Enlace_Probador.js`), que escribe en la hoja del Probador (`CierreEstado` + `Bitacora`, a nombre del técnico; el Probador solo acepta token de Google, por eso se escribe directo); (4) se vuelve a leer el Probador (`gasPendientesProbador_(hoy, true)`) y aparece la siguiente unidad. Orden obligatorio; un reintento de una unidad ya validada responde sin error.
+- `completarTareaGas_` exige que el Probador ya no tenga unidades pendientes (si no se puede leer, no cierra).
+- `js_gas.html`: `pintarGasTecnico` y `confirmarAccionGasUI` vuelven a ser interactivos. `pruebas/sim_gas_probador.js`: 13 casos.

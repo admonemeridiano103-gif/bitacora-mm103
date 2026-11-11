@@ -293,11 +293,11 @@ function quitarProrrogaGas(token, clave) {
 // --- Vista y ejecución del técnico: solo torre, número y acción (sin montos ni nombres) ---
 
 function gasTareaVista_(registroId) {
-  // Solo lectura: la acción se registra en la app de Lectura y cierre de servicios. Aquí el error se muestra al técnico.
-  var items = gasPendientesProbador_(fechaHoy_()).map(function (x) {
+  // La lista sale del Probador (lectura fresca): lo que el Probador ya tiene validado deja de aparecer.
+  var items = gasPendientesProbador_(fechaHoy_(), true).map(function (x) {
     return { clave: x.clave, torre: x.torre, departamento: x.departamento, accion: x.accion, hecho: false };
   });
-  return { registro_id: registroId, items: items, siguiente: null, total: items.length, hechos: 0, solo_lectura: true };
+  return { registro_id: registroId, items: items, siguiente: items.length ? items[0].clave : null, total: items.length, hechos: 0 };
 }
 
 function obtenerTareaGas(token, registroId) {
@@ -309,39 +309,44 @@ function obtenerTareaGas(token, registroId) {
   return gasTareaVista_(registroId);
 }
 
-/** Registra un departamento con foto. Debe ser el siguiente de la lista (orden obligatorio). */
+/**
+ * Valida un departamento con foto: guarda la evidencia y registra en el Probador que quedó Cerrado/Abierto.
+ * Debe ser el siguiente de la lista (orden obligatorio). Si el Probador ya no lo tiene pendiente, responde sin error (reintento).
+ */
 function registrarAccionGas(token, registroId, clave, fotoBase64, fotoMime, fotoNombre) {
   var usuario = requierePermiso_(token, PERMISOS.EJECUTAR_TAREAS_COLA);
-  throw new Error('El cierre y la apertura de gas se registran en la app de Lectura y cierre de servicios, no aquí.');
   var tarea = buscarFilaPorValor_(HOJAS.COLA, 'registro_id', registroId, false);
   if (!tarea) throw new Error('No existe el registro de cola "' + registroId + '".');
   var obj = tarea.fila.obj;
   if (String(obj.tipo_origen) !== 'Gas') throw new Error('Ese registro de cola no es la tarea de gas.');
   if (obj.estado !== 'En proceso') throw new Error('Esta tarea no está en proceso.');
   if (obj.usuario_asignado_actual !== usuario.id_usuario) throw new Error('Esta tarea está asignada a otro usuario.');
-  var vista = gasTareaVista_(registroId);
-  var item = null;
-  vista.items.forEach(function (x) { if (x.clave === clave) item = x; });
-  if (!item) throw new Error('El departamento ' + clave + ' no tiene una acción de gas pendiente.');
-  if (item.hecho) { vista.ok = true; vista.duplicado = true; return vista; }
-  if (vista.siguiente !== clave) throw new Error('Debes recorrer los departamentos en orden. Sigue: ' + vista.siguiente + '.');
-  if (!fotoBase64) throw new Error('Debes adjuntar la foto de evidencia de este departamento.');
-  if (String(fotoBase64).length > 7000000) throw new Error('La imagen es demasiado grande. Usa una foto más ligera.');
-  var blob = Utilities.newBlob(Utilities.base64Decode(fotoBase64), fotoMime || 'image/jpeg', fotoNombre || (clave + '.jpg'));
-  var archivo = carpetaFotosEvidenciaTareas_().createFile(blob);
-  archivo.setName(registroId + ' - GAS ' + clave + ' - ' + item.accion + ' - ' + new Date().getTime());
-  archivo.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-  var url = 'https://drive.google.com/thumbnail?sz=w500&id=' + archivo.getId();
-  var enc = buscarFilaPorValor_(HOJA_GAS_REPORTE, 'clave', clave, false);
-  escribirCamposFila_(enc, {
-    estado_gas: item.accion === 'Cerrar' ? 'Cerrado' : 'Abierto', foto_evidencia_url: url,
-    ejecutado_por: usuario.nombre_completo || usuario.correo || usuario.id_usuario, fecha_ejecucion: new Date()
-  });
-  registrarEvidenciaFoto_(usuario.id_usuario, 'GAS_DEPTO', registroId + '|' + clave, url);
-  registrarAuditoria_(usuario.id_usuario, usuario.correo, 'EJECUTAR_GAS', HOJA_GAS_REPORTE, clave, '', item.accion);
-  var nueva = gasTareaVista_(registroId);
-  nueva.ok = true;
-  return nueva;
+  var candado = LockService.getScriptLock();
+  candado.waitLock(30000);
+  try {
+    var vista = gasTareaVista_(registroId);
+    var item = null;
+    vista.items.forEach(function (x) { if (x.clave === clave) item = x; });
+    if (!item) { vista.ok = true; vista.duplicado = true; return vista; } // ya validado (reintento o lo hizo otra persona)
+    if (vista.siguiente !== clave) throw new Error('Debes recorrer las unidades en orden. Sigue: ' + vista.siguiente + '.');
+    if (!fotoBase64) throw new Error('Debes adjuntar la foto de evidencia de esta unidad.');
+    if (String(fotoBase64).length > 7000000) throw new Error('La imagen es demasiado grande. Usa una foto más ligera.');
+    var blob = Utilities.newBlob(Utilities.base64Decode(fotoBase64), fotoMime || 'image/jpeg', fotoNombre || (clave + '.jpg'));
+    var archivo = carpetaFotosEvidenciaTareas_().createFile(blob);
+    archivo.setName(registroId + ' - GAS ' + clave + ' - ' + item.accion + ' - ' + new Date().getTime());
+    archivo.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    var url = 'https://drive.google.com/thumbnail?sz=w500&id=' + archivo.getId();
+    registrarEvidenciaFoto_(usuario.id_usuario, 'GAS_DEPTO', registroId + '|' + clave, url);
+    marcarGasProbador_(clave, item.accion === 'Cerrar' ? 'CERRADO' : 'ABIERTO', usuario,
+      'Validado con foto desde la Bitácora MM103 (' + registroId + '): ' + url,
+      { unidad: item.torre + ' ' + item.departamento, servicio: 'gas', estadoDespues: item.accion === 'Cerrar' ? 'CERRADO' : 'ABIERTO', origen: 'Bitácora MM103', registro: registroId, foto: url });
+    registrarAuditoria_(usuario.id_usuario, usuario.correo, 'EJECUTAR_GAS', 'PROBADOR_CierreEstado', clave, '', item.accion);
+    var nueva = gasTareaVista_(registroId); // vuelve al paso 1: la siguiente unidad pendiente según el Probador
+    nueva.ok = true;
+    return nueva;
+  } finally {
+    candado.releaseLock();
+  }
 }
 
 /** Cierra la tarea de gas en la cola (llamada desde completarTarea). Exige que no quede ningún departamento pendiente. */
@@ -350,11 +355,12 @@ function completarTareaGas_(usuario, registroId, obj, descripcion) {
   var inicio = obj.hora_inicio ? new Date(obj.hora_inicio) : null;
   var seg = (inicio && !isNaN(inicio.getTime())) ? Math.max(0, Math.round((ahora - inicio) / 1000)) : 0;
   var minutos = Math.max(1, Math.round((seg + (Number(obj.tiempo_acumulado_segundos) || 0)) / 60));
-  var pend = gasPendientes_(fechaHoy_()).length;
+  var pend = gasPendientesProbador_(fechaHoy_(), true); // si no se puede leer el Probador, lanza error y no se cierra
+  if (pend.length) throw new Error('Faltan ' + pend.length + ' unidad(es) por validar con foto. Siguiente: ' + pend[0].torre + ' ' + pend[0].departamento + '.');
   var enc = buscarFilaPorValor_(HOJAS.COLA, 'registro_id', registroId, false);
   escribirCamposFila_(enc, {
     estado: 'Completada', hora_fin: ahora, tiempo_total_minutos: minutos,
-    descripcion_realizada: descripcion || ('Cierre/Apertura de gas: ' + pend + ' unidad(es) pendiente(s) al terminar según Lectura y cierre de servicios')
+    descripcion_realizada: descripcion || 'Cierre/Apertura de gas: todas las unidades validadas con foto'
   });
   var extras = leerTabla_(HOJAS.EXTRA);
   extras.filas.forEach(function (f) {

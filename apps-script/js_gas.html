@@ -164,13 +164,43 @@ function abrirTareaGas(registroId) {
 
 function pintarGasTecnico(t) {
   GAS_ESTADO.tarea = t;
-  document.getElementById('gast_avance').textContent = t.total ? t.total + ' unidad(es) pendiente(s) según Lectura y cierre de servicios.' : 'No hay unidades pendientes según Lectura y cierre de servicios.';
-  document.getElementById('gast_actual').innerHTML =
-    '<p class="pequeno">Solo consulta: el cierre o la apertura se registra en la app de Lectura y cierre de servicios. Al terminar, cierra esta tarea.</p>' +
-    '<div class="fila-botones"><button class="exito" onclick="terminarTareaGasUI()">Terminar tarea de gas</button></div>';
+  document.getElementById('gast_avance').textContent = t.total ? 'Faltan ' + t.total + ' unidad(es) por validar (según Lectura y cierre de servicios).' : 'No hay unidades pendientes.';
+  var actual = (t.items || []).filter(function (x) { return x.clave === t.siguiente; })[0];
+  var zona = document.getElementById('gast_actual');
+  if (actual) {
+    // Paso 1: la app dice qué debe hacer el técnico con esta unidad.
+    var cerrar = actual.accion === 'Cerrar';
+    zona.innerHTML =
+      '<div class="tarjeta" style="border:2px solid #0b5fa5">' +
+      '<h3>Torre ' + escapar_(actual.torre) + ' · ' + escapar_(actual.departamento) + '</h3>' +
+      '<p><strong>' + (cerrar ? '🔒 CERRAR el servicio de gas' : '🔓 ABRIR el servicio de gas') + '</strong></p>' +
+      '<p class="pequeno">Haz el ' + (cerrar ? 'cierre' : 'la apertura') + ', toma la foto como evidencia y valida. Al validar se actualiza la app de Lectura y cierre de servicios y aparece la siguiente unidad.</p>' +
+      '<input type="file" id="gast_foto" accept="image/*" capture="environment">' +
+      '<div class="fila-botones"><button class="exito" id="gast_confirmar" onclick="confirmarAccionGasUI('' + escapar_(actual.clave) + '')">Validar ' + (cerrar ? 'cierre' : 'apertura') + '</button></div>' +
+      '</div>';
+  } else {
+    zona.innerHTML =
+      '<p><strong>Todas las unidades están validadas.</strong></p>' +
+      '<div class="fila-botones"><button class="exito" onclick="terminarTareaGasUI()">Terminar tarea de gas</button></div>';
+  }
   document.getElementById('gast_lista').innerHTML = '<ul>' + (t.items || []).map(function (x) {
-    return '<li>' + (x.accion === 'Cerrar' ? '🔒 Cerrar' : '🔓 Abrir') + ' — Torre ' + escapar_(x.torre) + ' · ' + escapar_(x.departamento) + '</li>';
+    return '<li>' + (x.clave === t.siguiente ? '👉 ' : '⏳ ') + (x.accion === 'Cerrar' ? 'Cerrar' : 'Abrir') + ' — Torre ' + escapar_(x.torre) + ' · ' + escapar_(x.departamento) + '</li>';
   }).join('') + '</ul>';
+}
+
+function confirmarAccionGasUI(clave) {
+  var input = document.getElementById('gast_foto');
+  var archivo = input && input.files[0];
+  if (!archivo) { mostrarError('Toma la foto de evidencia de esta unidad antes de validar.'); return; }
+  var boton = document.getElementById('gast_confirmar');
+  var restaurar = function () { if (boton) { boton.disabled = false; boton.textContent = 'Validar'; } };
+  if (boton) { boton.disabled = true; boton.textContent = 'Guardando…'; }
+  comprimirImagenParaSubir_(archivo, function (base64, mime, nombre) {
+    google.script.run
+      .withSuccessHandler(function (t) { mostrarExito('Unidad validada.'); pintarGasTecnico(t); })
+      .withFailureHandler(function (e) { restaurar(); mostrarError(e); })
+      .registrarAccionGas(TOKEN, GAS_ESTADO.registroId, clave, base64, mime, nombre);
+  }, function (e) { restaurar(); mostrarError(e); });
 }
 
 function terminarTareaGasUI() {
