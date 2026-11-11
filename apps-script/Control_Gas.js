@@ -37,10 +37,10 @@ function asegurarHojasGas_() {
 
 /** El módulo está encendido cuando al menos un rol tiene CONTROL_CIERRE_GAS en ROLES_PERMISOS. */
 function moduloGasActivo_() {
-  // FASE 2 (2026-11-07): el control de gas y las lecturas pasaron al Probador OCR ("Lectura y cierre de servicios").
-  // Interruptor fijo: el modulo queda apagado sin importar los permisos. Los datos y el codigo se conservan.
-  // Para reactivarlo, quitar la linea siguiente.
-  return false;
+  // FASE 2 (2026-11-07): el control de gas y las lecturas viven en el Probador OCR ("Lectura y cierre de servicios").
+  // La tarea del técnico se arma con los datos del Probador (solo lectura; ver Enlace_Probador.js). La pantalla
+  // de administración local queda oculta y sus datos se conservan. El módulo local ya no se enciende por permisos.
+  return true;
   /* eslint-disable no-unreachable */
   var tabla = leerTabla_(HOJAS.ROLES);
   var activo = false;
@@ -140,13 +140,8 @@ function gasOrdenar_(a, b) {
 
 /** Departamentos con acción pendiente (Cerrar/Abrir), en el orden en que el técnico debe recorrerlos. */
 function gasPendientes_(hoy) {
-  asegurarHojasGas_();
-  var lista = [];
-  leerTabla_(HOJA_GAS_REPORTE).filas.forEach(function (f) {
-    var accion = gasAccion_(f.obj, hoy);
-    if (accion !== 'Sin cambio') lista.push({ clave: f.obj.clave, torre: f.obj.torre, departamento: f.obj.departamento, accion: accion });
-  });
-  return lista.sort(gasOrdenar_);
+  // Si el Probador no se puede leer, no se rompe la cola: sin datos no se agrega la tarea.
+  try { return gasPendientesProbador_(hoy); } catch (e) { console.warn(e); return []; }
 }
 
 function gasVista_() {
@@ -298,25 +293,11 @@ function quitarProrrogaGas(token, clave) {
 // --- Vista y ejecución del técnico: solo torre, número y acción (sin montos ni nombres) ---
 
 function gasTareaVista_(registroId) {
-  var hoy = fechaHoy_();
-  var items = [];
-  leerTabla_(HOJA_GAS_REPORTE).filas.forEach(function (f) {
-    var o = f.obj;
-    var accion = gasAccion_(o, hoy);
-    var hechaHoy = accion === 'Sin cambio' && o.ejecutado_por && o.fecha_ejecucion && soloFecha_(o.fecha_ejecucion) === hoy;
-    if (accion === 'Sin cambio' && !hechaHoy) return;
-    items.push({
-      clave: o.clave, torre: o.torre, departamento: String(o.departamento),
-      accion: hechaHoy ? (String(o.estado_gas) === 'Cerrado' ? 'Cerrar' : 'Abrir') : accion, hecho: !!hechaHoy
-    });
+  // Solo lectura: la acción se registra en la app de Lectura y cierre de servicios. Aquí el error se muestra al técnico.
+  var items = gasPendientesProbador_(fechaHoy_()).map(function (x) {
+    return { clave: x.clave, torre: x.torre, departamento: x.departamento, accion: x.accion, hecho: false };
   });
-  items.sort(gasOrdenar_);
-  var siguiente = null;
-  items.forEach(function (x) { if (!siguiente && !x.hecho) siguiente = x.clave; });
-  return {
-    registro_id: registroId, items: items, siguiente: siguiente,
-    total: items.length, hechos: items.filter(function (x) { return x.hecho; }).length
-  };
+  return { registro_id: registroId, items: items, siguiente: null, total: items.length, hechos: 0, solo_lectura: true };
 }
 
 function obtenerTareaGas(token, registroId) {
@@ -331,6 +312,7 @@ function obtenerTareaGas(token, registroId) {
 /** Registra un departamento con foto. Debe ser el siguiente de la lista (orden obligatorio). */
 function registrarAccionGas(token, registroId, clave, fotoBase64, fotoMime, fotoNombre) {
   var usuario = requierePermiso_(token, PERMISOS.EJECUTAR_TAREAS_COLA);
+  throw new Error('El cierre y la apertura de gas se registran en la app de Lectura y cierre de servicios, no aquí.');
   var tarea = buscarFilaPorValor_(HOJAS.COLA, 'registro_id', registroId, false);
   if (!tarea) throw new Error('No existe el registro de cola "' + registroId + '".');
   var obj = tarea.fila.obj;
@@ -364,17 +346,15 @@ function registrarAccionGas(token, registroId, clave, fotoBase64, fotoMime, foto
 
 /** Cierra la tarea de gas en la cola (llamada desde completarTarea). Exige que no quede ningún departamento pendiente. */
 function completarTareaGas_(usuario, registroId, obj, descripcion) {
-  var pend = gasPendientes_(fechaHoy_());
-  if (pend.length) throw new Error('Faltan ' + pend.length + ' departamento(s) con foto y confirmación. Siguiente: ' + pend[0].torre + ' ' + pend[0].departamento + '.');
   var ahora = new Date();
   var inicio = obj.hora_inicio ? new Date(obj.hora_inicio) : null;
   var seg = (inicio && !isNaN(inicio.getTime())) ? Math.max(0, Math.round((ahora - inicio) / 1000)) : 0;
   var minutos = Math.max(1, Math.round((seg + (Number(obj.tiempo_acumulado_segundos) || 0)) / 60));
-  var vista = gasTareaVista_(registroId);
+  var pend = gasPendientes_(fechaHoy_()).length;
   var enc = buscarFilaPorValor_(HOJAS.COLA, 'registro_id', registroId, false);
   escribirCamposFila_(enc, {
     estado: 'Completada', hora_fin: ahora, tiempo_total_minutos: minutos,
-    descripcion_realizada: descripcion || ('Cierre/Apertura de gas: ' + vista.hechos + ' departamento(s)')
+    descripcion_realizada: descripcion || ('Cierre/Apertura de gas: ' + pend + ' unidad(es) pendiente(s) al terminar según Lectura y cierre de servicios')
   });
   var extras = leerTabla_(HOJAS.EXTRA);
   extras.filas.forEach(function (f) {
@@ -414,7 +394,8 @@ function agregarGasDelDiaACola_(fecha) {
   var existente = null;
   leerTabla_(HOJAS.COLA).filas.forEach(function (f) {
     var o = f.obj;
-    if (soloFecha_(o.fecha) === fecha && o.tipo_origen === 'Gas' && o.estado !== 'Completada') existente = o.registro_id;
+    // Una sola tarea de gas por día (aunque ya esté completada): el estado real se lleva en el Probador.
+    if (soloFecha_(o.fecha) === fecha && o.tipo_origen === 'Gas') existente = o.registro_id;
   });
   if (existente) return existente;
   var id = gasIdsColaNuevos_(1)[0];

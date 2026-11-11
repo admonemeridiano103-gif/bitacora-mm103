@@ -60,7 +60,7 @@ function contarPor_(filas, campo) {
 
 /** Resumen sin datos personales (sin correos ni fotos). Cache de 5 minutos. */
 function obtenerResumenProbador(token) {
-  requiereSesion_(token);
+  requierePermiso_(token, PERMISOS.CONTROL_CIERRE_GAS);
   return resumenProbador_();
 }
 
@@ -89,6 +89,60 @@ function resumenProbador_() {
     res.error = 'No se pudo leer el Probador: ' + String(e && e.message ? e.message : e);
   }
   return res;
+}
+
+/**
+ * Gas pendiente según el Probador (solo lectura). Replica `evaluar_` de su Cierre.js solo para gas:
+ * solicitud del propietario > adeudo >= umbral sin prórroga > abrir; pendiente si el estado físico no coincide.
+ * t = { Medidores, CierreMontos, CierreEstado, CierreProrrogas, CierreSolicitudes, CierreImportes } (filas como objetos).
+ * Sin montos ni propietarios: es lo que ve el técnico.
+ */
+function gasEvaluarProbador_(t, hoy) {
+  var grupos = {};
+  t.Medidores.forEach(function (m) {
+    if (m.Servicio !== 'gas') return;
+    var cod = m.Estado === 'comparte' && m.UsaMedidorDe ? String(m.UsaMedidorDe) : String(m.Codigo);
+    var clave = m.Torre + '|' + cod;
+    var g = grupos[clave] || (grupos[clave] = { torre: String(m.Torre), codigo: cod, nombre: '' });
+    if (String(m.Codigo) === cod) g.nombre = String(m.Nombre || '');
+  });
+  var ult = t.CierreImportes.length ? t.CierreImportes[t.CierreImportes.length - 1] : null;
+  var umbral = ult && Number(ult.Umbral) > 0 ? Number(ult.Umbral) : 200; // shortcut: el umbral real vive en el Probador; se toma del último importe
+  var monto = {}, estadoDe = {};
+  t.CierreMontos.forEach(function (m) { monto[m.Unidad] = Number(m.Monto) || 0; });
+  t.CierreEstado.forEach(function (e) { if (e.Servicio === 'gas') estadoDe[e.Unidad] = e; });
+  var lista = [];
+  Object.keys(grupos).forEach(function (clave) {
+    var g = grupos[clave], sol = null;
+    t.CierreSolicitudes.forEach(function (s) {
+      if (s.Estado !== 'activa' || s.Servicio !== 'gas' || s.Unidad !== clave || String(s.Fecha) > hoy) return;
+      if (!sol || String(s.Fecha) + String(s.CreadaEn) > String(sol.Fecha) + String(sol.CreadaEn)) sol = s;
+    });
+    var prorroga = t.CierreProrrogas.some(function (p) { return p.Estado === 'vigente' && p.Unidad === clave && String(p.Hasta) >= hoy; });
+    var cerrar = false;
+    if (sol && sol.Accion === 'cerrar') cerrar = true;
+    else if ((monto[clave] || 0) >= umbral && !prorroga) cerrar = true;
+    var est = estadoDe[clave], fisico = est && est.Estado ? est.Estado : '';
+    if (fisico === (cerrar ? 'CERRADO' : 'ABIERTO')) return;
+    lista.push({ clave: clave, torre: g.torre, departamento: g.codigo + (g.nombre ? ' ' + g.nombre : ''), accion: cerrar ? 'Cerrar' : 'Abrir' });
+  });
+  return lista.sort(gasOrdenar_);
+}
+
+/** Lee el Probador y devuelve el gas pendiente de hoy. Caché de 60 s. Lanza error si no se puede leer. */
+function gasPendientesProbador_(hoy) {
+  var cache = CacheService.getScriptCache(), hit = cache.get('PROBADOR_GAS_PEND');
+  if (hit) return JSON.parse(hit);
+  var t = {};
+  try {
+    var ss = SpreadsheetApp.openById(PROBADOR_SHEET_ID);
+    ['Medidores', 'CierreMontos', 'CierreEstado', 'CierreProrrogas', 'CierreSolicitudes', 'CierreImportes'].forEach(function (n) { t[n] = filasProbador_(ss, n); });
+  } catch (e) {
+    throw new Error('No se pudo leer la app de Lectura y cierre de servicios: ' + String(e && e.message ? e.message : e));
+  }
+  var lista = gasEvaluarProbador_(t, hoy);
+  cache.put('PROBADOR_GAS_PEND', JSON.stringify(lista), 60);
+  return lista;
 }
 
 function probarResumenProbador() { var r = resumenProbador_(); Logger.log(JSON.stringify(r, null, 1)); return r.ok; }

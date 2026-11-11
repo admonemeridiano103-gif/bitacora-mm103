@@ -465,3 +465,18 @@ Pendiente ──tomar──► En proceso ──completar──► Completada
 | 69 | `fase-8-v69` | 8 | Pruebas de cierre por rol; quita botones de otro perfil al cambiar de usuario; tablas antiguas contenidas en celular (web) |
 
 Pendiente: **Fase 2** (recepción de datos de la otra app de Apps Script), pausada hasta tener acceso completo a esa app. Lista de pruebas por rol: `docs/PRUEBAS_FASE8.md`. Pruebas automáticas: `pruebas/README.md`.
+
+## Cambios 2026-11-11 (gas desde el Probador)
+
+- `Enlace_Probador.js`: `gasEvaluarProbador_` / `gasPendientesProbador_` leen la hoja del Probador (Medidores, CierreMontos, CierreEstado, CierreProrrogas, CierreSolicitudes, CierreImportes) y calculan el gas pendiente (solo lectura, caché 60 s). `obtenerResumenProbador` ahora exige `CONTROL_CIERRE_GAS`.
+- `Control_Gas.js`: `moduloGasActivo_` devuelve `true`; `gasPendientes_` y `gasTareaVista_` usan el Probador; `registrarAccionGas` ya no registra (el técnico solo consulta); una sola tarea de gas por día en la cola.
+- `js_nucleo.html`: el botón "Lecturas y gas (Probador)" solo aparece con `CONTROL_CIERRE_GAS`. `js_gas.html`: la vista del técnico es una lista de consulta.
+- `pruebas/sim_gas_probador.js`: prueba de la evaluación (8 casos).
+- `puente.js`/`sw.js` 0.6.3: los avisos de sesión vencida no cuentan como "con problema".
+
+## Cambios 2026-11-11 (tickets atendidos)
+
+- `Tareas_Cola.js` (`construirColaDelDia_`): un ticket atendido o completado hoy ya no se oculta; sale con `ticket_terminado: true`, al final de la lista, hasta el cierre de jornada (entonces pasa al historial). Los cancelados siguen ocultos. `motivoOcultoEnCola_` no cambió (el traslado de jornada y el historial dependen de él).
+- `Reapertura.js`: también reabre un ticket atendido desde la pantalla de tickets (renglón aún Pendiente); en tickets la foto es opcional, el motivo sigue obligatorio.
+- `js_trabajos.html`: el ticket terminado muestra "Atendido" y solo el botón "Volver a abrir". `puente.js`/`sw.js` 0.6.4: el modo sin internet marca igual el ticket atendido.
+- `pruebas/sim_cola.js`: expectativas actualizadas (21 casos).

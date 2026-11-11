@@ -141,8 +141,8 @@ function entrarConSesion(usuario) {
   if (permisos.CONFIGURAR_HORARIOS || permisos.ALTA_BAJA_USUARIOS) document.getElementById('menuBtnHorarios').classList.remove('oculto');
   if (permisos.CARGAR_MODIFICAR_TAREAS) document.getElementById('menuBtnCatalogoTareas').classList.remove('oculto');
   if (permisos.CARGAR_MODIFICAR_TAREAS || permisos.EJECUTAR_TAREAS_COLA) document.getElementById('menuBtnTrabajosExtra').classList.remove('oculto');
-  // Fase 2: el control de gas vive en el Probador OCR; el boton propio queda oculto y se muestra el enlace.
-  document.getElementById('menuBtnProbador').classList.remove('oculto');
+  // Fase 2: el control de gas vive en el Probador OCR; el boton propio queda oculto y el enlace solo lo ve administración.
+  if (permisos.CONTROL_CIERRE_GAS) document.getElementById('menuBtnProbador').classList.remove('oculto');
   if (permisos.EJECUTAR_TAREAS_COLA || permisos.CARGAR_MODIFICAR_TAREAS || permisos.GENERAR_CODIGO_SALTO) document.getElementById('menuBtnColaHoy').classList.remove('oculto');
   if (permisos.REGISTRAR_LECTURA_EQUIPO || permisos.CARGAR_MODIFICAR_TAREAS) document.getElementById('menuBtnChecklistEquipos').classList.remove('oculto');
   if (permisos.REGISTRAR_ENTRADA_MATERIAL || permisos.REGISTRAR_SALIDA_MATERIAL || permisos.REGISTRAR_CONSUMO_MATERIAL || permisos.AUDITORIA_INVENTARIO) document.getElementById('menuBtnAlmacen').classList.remove('oculto');

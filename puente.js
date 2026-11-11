@@ -14,7 +14,7 @@
   if (window.__MM103_PUENTE) return;
   window.__MM103_PUENTE = true;
 
-  var VERSION = '0.6.2';
+  var VERSION = '0.6.4';
   var API_URL = 'https://script.google.com/macros/s/AKfycbxzVSB0hEQgd9TW01NhmVffLJyioYIg0cRhdRcLxAbYOcT8hCvG-8yA2vi6bA8g936cRw/exec';
 
   var SIN_TOKEN = { login: 1, solicitarCodigoAcceso: 1, crearCredenciales: 1, restablecerPassword: 1, obtenerPermisos: 1 };
@@ -104,7 +104,8 @@
   }).then(function (r) {
     r[0].forEach(function (kv) { CACHE[kv[0]] = kv[1]; });
     OUTBOX = r[1].map(function (kv) { return kv[1]; }).sort(function (a, b) { return a.seq - b.seq; });
-    ERRORES = r[2].map(function (kv) { return kv[1]; }).sort(function (a, b) { return a.seq - b.seq; });
+    // Un aviso de "sesión vencida" no es un cambio rechazado: se descarta aunque haya quedado guardado de antes.
+    ERRORES = r[2].map(function (kv) { return kv[1]; }).filter(function (e) { return !esErrorSesion(e && e.mensaje); }).sort(function (a, b) { return a.seq - b.seq; });
     r[3].forEach(function (kv) { META[kv[0]] = kv[1]; });
     try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) {}
     marcarListo();
@@ -301,7 +302,10 @@
     atenderTicket: function (a) {
       var tk = clon(leerCache('listarTickets|[]')); if (!tk) return null;
       tk.forEach(function (t) { if (t.ticket_id === a[1]) t.estado = 'Atendido'; });
-      guardarCache('listarTickets|[]', tk); return { r: { ok: true, tickets: tk } };
+      guardarCache('listarTickets|[]', tk);
+      var c = colaLocal();
+      if (c) { c.forEach(function (f) { if (f.tipo_origen === 'Ticket' && f.origen_id === a[1]) f.ticket_terminado = true; }); setCola(c); }
+      return { r: { ok: true, tickets: tk, cola: c } };
     },
     crearTicket: function (a) {
       var d = a[1] || {}; var tk = clon(leerCache('listarTickets|[]')) || []; var me = yo() || {};
@@ -337,7 +341,7 @@
       var c = colaLocal(); var t = buscar(c, a[1]); if (!t) return null; var me = yo() || {};
       t.estado = 'Pendiente'; t.usuario_asignado_actual = ''; t.hora_inicio = ''; t.hora_fin = ''; t.tiempo_total_minutos = '';
       t.motivo_reapertura = a[2]; t.reabierto_por = me.nombre_completo || ''; t.reabierto_veces = (Number(t.reabierto_veces) || 0) + 1;
-      t.fotos_reapertura = [];
+      t.fotos_reapertura = []; t.ticket_terminado = false;
       setCola(c); return { r: { ok: true, cola: c } };
     },
     moverTareaEnCola: function (a) { return moverEnCola(a[1], a[2]); },
@@ -451,7 +455,7 @@
       var res = resp && resp.resultados && resp.resultados[0];
       if (!res) throw new Error('Respuesta incompleta');
       var valor = res.resultado;
-      if (!res.ok && (res.sesion_invalida || esErrorSesion(res.error))) {
+      if ((!res.ok && (res.sesion_invalida || esErrorSesion(res.error))) || (res.ok && valor && valor.ok === false && esErrorSesion(valor.mensaje))) {
         sincronizando = false; META.sesionVencida = true; pintarPastilla();
         aviso('Tu sesión venció. Vuelve a entrar; los cambios pendientes se suben después.');
         return;

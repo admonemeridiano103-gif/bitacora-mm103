@@ -20,7 +20,6 @@ function reabrirTrabajoCompletado(token, registroId, motivo, fotos) {
   motivo = String(motivo || '').trim();
   if (!motivo) throw new Error('Escribe qué hizo falta para volver a abrir el trabajo.');
   fotos = (Array.isArray(fotos) ? fotos : []).filter(function (f) { return f && f.base64; });
-  if (!fotos.length) throw new Error('Agrega al menos una foto de lo que hace falta.');
   if (fotos.length > MAX_FOTOS_REAPERTURA) throw new Error('Puedes adjuntar máximo ' + MAX_FOTOS_REAPERTURA + ' fotos.');
 
   var candado = LockService.getScriptLock();
@@ -32,9 +31,18 @@ function reabrirTrabajoCompletado(token, registroId, motivo, fotos) {
     var enc = buscarFilaPorValor_(HOJAS.COLA, 'registro_id', registroId, false);
     if (!enc) throw new Error('No existe el registro de cola "' + registroId + '".');
     var o = enc.fila.obj;
-    if (o.estado !== 'Completada') {
+    var tipo = o.tipo_origen || 'Catalogo';
+    // Un ticket atendido desde la pantalla de tickets puede tener el renglón aún Pendiente: también se puede reabrir.
+    var ticketAtendido = false;
+    if (tipo === 'Ticket') {
+      var tk0 = buscarFilaPorValor_('TICKETS_INDICACIONES', 'ticket_id', o.origen_id, false);
+      ticketAtendido = !!tk0 && tk0.fila.obj.estado === 'Atendido';
+    }
+    if (o.estado !== 'Completada' && !ticketAtendido) {
       throw new Error('Solo se puede volver a abrir un trabajo completado (este está "' + o.estado + '").');
     }
+    // La foto es obligatoria salvo en tickets, donde basta con decir qué hizo falta.
+    if (!fotos.length && tipo !== 'Ticket') throw new Error('Agrega al menos una foto de lo que hace falta.');
 
     // Fotos de lo que hace falta: misma carpeta de Drive que las fotos de tickets.
     var urls = guardarFotosAntesTicket_('REABRIR-' + registroId, fotos);
@@ -42,7 +50,6 @@ function reabrirTrabajoCompletado(token, registroId, motivo, fotos) {
       try { registrarEvidenciaFoto_(usuario.id_usuario, 'Reapertura', registroId, u); } catch (e) { console.warn('Evidencia reapertura: ' + e); }
     });
 
-    var tipo = o.tipo_origen || 'Catalogo';
     if (tipo === 'Ticket') {
       var et = buscarFilaPorValor_('TICKETS_INDICACIONES', 'ticket_id', o.origen_id, false);
       if (et) {

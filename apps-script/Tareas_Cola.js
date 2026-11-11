@@ -586,7 +586,13 @@ function construirColaDelDia_(fecha, opciones) {
       base.reabierto_por = o.reabierto_por || '';
       base.posicion_manual = valorPosicionManual_(o.posicion_manual);
       base.oculto_motivo = motivoOcultoEnCola_(o, mapas, hoy);
-      base.orden_efectivo = claveOrdenCola_(o, catalogo, tickets);
+      // Un ticket atendido o completado hoy sigue a la vista (con "Volver a abrir") hasta el cierre de jornada, cuando pasa al historial.
+      base.ticket_terminado = false;
+      if (tipoOrigen === 'Ticket' && base.oculto_motivo && !/cancelad/i.test(base.oculto_motivo) && !o.archivado_en && fecha === hoy) {
+        base.ticket_terminado = true;
+        base.oculto_motivo = '';
+      }
+      base.orden_efectivo = claveOrdenCola_(o, catalogo, tickets) + (base.ticket_terminado ? 100000 : 0); // al final de la lista
       base.orden_cola = base.orden_efectivo;
       base._indice = indiceOriginal;
       return base;

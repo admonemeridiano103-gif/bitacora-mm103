@@ -164,42 +164,13 @@ function abrirTareaGas(registroId) {
 
 function pintarGasTecnico(t) {
   GAS_ESTADO.tarea = t;
-  document.getElementById('gast_avance').textContent = t.hechos + ' de ' + t.total + ' departamentos listos.';
-  var actual = (t.items || []).filter(function (x) { return x.clave === t.siguiente; })[0];
-  var zona = document.getElementById('gast_actual');
-  if (actual) {
-    var verbo = actual.accion === 'Cerrar' ? 'CERRAR el gas' : 'ABRIR el gas';
-    zona.innerHTML =
-      '<div class="tarjeta" style="border:2px solid #0b5fa5">' +
-      '<h3>' + escapar_(gasEtiquetaUnidad_(actual.torre, actual.departamento)) + '</h3>' +
-      '<p><strong>' + verbo + '</strong></p>' +
-      '<p class="pequeno">Toma la foto de evidencia y confirma. No puedes pasar al siguiente sin la foto.</p>' +
-      '<input type="file" id="gast_foto" accept="image/*" capture="environment">' +
-      '<div class="fila-botones"><button class="exito" id="gast_confirmar" onclick="confirmarAccionGasUI(\'' + escapar_(actual.clave) + '\')">Confirmar ' + (actual.accion === 'Cerrar' ? 'cierre' : 'apertura') + '</button></div>' +
-      '</div>';
-  } else {
-    zona.innerHTML =
-      '<p><strong>Todos los departamentos están listos.</strong></p>' +
-      '<div class="fila-botones"><button class="exito" onclick="terminarTareaGasUI()">Terminar tarea de gas</button></div>';
-  }
+  document.getElementById('gast_avance').textContent = t.total ? t.total + ' unidad(es) pendiente(s) según Lectura y cierre de servicios.' : 'No hay unidades pendientes según Lectura y cierre de servicios.';
+  document.getElementById('gast_actual').innerHTML =
+    '<p class="pequeno">Solo consulta: el cierre o la apertura se registra en la app de Lectura y cierre de servicios. Al terminar, cierra esta tarea.</p>' +
+    '<div class="fila-botones"><button class="exito" onclick="terminarTareaGasUI()">Terminar tarea de gas</button></div>';
   document.getElementById('gast_lista').innerHTML = '<ul>' + (t.items || []).map(function (x) {
-    var marca = x.hecho ? '✅' : (x.clave === t.siguiente ? '👉' : '⏳');
-    return '<li>' + marca + ' ' + escapar_(gasEtiquetaUnidad_(x.torre, x.departamento)) + ' — ' + (x.accion === 'Cerrar' ? 'Cerrar' : 'Abrir') + '</li>';
+    return '<li>' + (x.accion === 'Cerrar' ? '🔒 Cerrar' : '🔓 Abrir') + ' — Torre ' + escapar_(x.torre) + ' · ' + escapar_(x.departamento) + '</li>';
   }).join('') + '</ul>';
-}
-
-function confirmarAccionGasUI(clave) {
-  var input = document.getElementById('gast_foto');
-  var archivo = input && input.files[0];
-  if (!archivo) { mostrarError('Toma la foto de evidencia de este departamento antes de confirmar.'); return; }
-  var boton = document.getElementById('gast_confirmar');
-  if (boton) { boton.disabled = true; boton.textContent = 'Guardando…'; }
-  comprimirImagenParaSubir_(archivo, function (base64, mime, nombre) {
-    google.script.run
-      .withSuccessHandler(function (t) { mostrarExito('Departamento registrado.'); pintarGasTecnico(t); })
-      .withFailureHandler(function (e) { if (boton) { boton.disabled = false; boton.textContent = 'Confirmar'; } mostrarError(e); })
-      .registrarAccionGas(TOKEN, GAS_ESTADO.registroId, clave, base64, mime, nombre);
-  }, function (e) { if (boton) { boton.disabled = false; boton.textContent = 'Confirmar'; } mostrarError(e); });
 }
 
 function terminarTareaGasUI() {

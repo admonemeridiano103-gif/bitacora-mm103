@@ -347,7 +347,7 @@ function pintarRecordatorios(lista) {
 function filaVisibleEnCola_(f) {
   if (ESTADO.colaVerOcultos) return true;
   if (f.oculto_motivo) return false;
-  if ((f.tipo_origen === 'Extra' || f.tipo_origen === 'Ticket') && f.estado === 'Completada') return false;
+  if (f.tipo_origen === 'Extra' && f.estado === 'Completada') return false;
   return true;
 }
 
@@ -382,6 +382,7 @@ function pintarColaHoy(filas) {
   var cuerpo = visibles.map(function (f) {
     var botones = '';
     var esMia = f.usuario_asignado_actual === miId;
+    var terminado = !!f.ticket_terminado; // ticket atendido hoy: solo se puede volver a abrir
     if (permisos.EJECUTAR_TAREAS_COLA && f.estado === 'En proceso' && esMia) {
       var eqsTarea = f.equipos_checklist || [];
       if (!eqsTarea.length) {
@@ -407,13 +408,13 @@ function pintarColaHoy(filas) {
       botones += '<button class="secundario" onclick="mostrarSeccion(\'tarjetaAlmacen\')">Almacén</button>';
     }
     // Cualquier técnico puede tomar un pendiente libre (o dirigido a él) o continuar un pausado.
-    if (permisos.EJECUTAR_TAREAS_COLA && f.estado === 'Pendiente' && (!f.usuario_asignado_actual || esMia)) {
+    if (permisos.EJECUTAR_TAREAS_COLA && f.estado === 'Pendiente' && !terminado && (!f.usuario_asignado_actual || esMia)) {
       botones += '<button class="primario" onclick="tomarTareaUI(\'' + f.registro_id + '\')">Tomar</button>';
     }
     if (permisos.EJECUTAR_TAREAS_COLA && f.estado === 'Pausado') {
       botones += '<button class="exito" onclick="tomarTareaUI(\'' + f.registro_id + '\')">Continuar trabajo</button>';
     }
-    if (permisos.GENERAR_CODIGO_SALTO && !f.bloqueo_estricto && (f.estado === 'Pendiente' || f.estado === 'En proceso')) {
+    if (permisos.GENERAR_CODIGO_SALTO && !f.bloqueo_estricto && !terminado && (f.estado === 'Pendiente' || f.estado === 'En proceso')) {
       botones += '<button class="secundario" onclick="generarCodigoSaltoUI(\'' + f.registro_id + '\')">Generar código de salto</button>';
     }
     if ((permisos.ENVIAR_TICKET || permisos.CARGAR_MODIFICAR_TAREAS) && (f.estado === 'En proceso' || f.estado === 'Pausado')) {
@@ -422,19 +423,19 @@ function pintarColaHoy(filas) {
     if ((permisos.ENVIAR_TICKET || permisos.CARGAR_MODIFICAR_TAREAS) && f.estado === 'Saltada') {
       botones += '<button class="secundario" title="Lo regresa a Pendiente aunque ya lo hayan saltado" onclick="devolverTareaColaUI(\'' + f.registro_id + '\')">Reactivar</button>';
     }
-    if ((permisos.ENVIAR_TICKET || permisos.CARGAR_MODIFICAR_TAREAS) && f.estado === 'Completada') {
+    if ((permisos.ENVIAR_TICKET || permisos.CARGAR_MODIFICAR_TAREAS) && (f.estado === 'Completada' || terminado)) {
       botones += '<button class="peligro" title="Faltó algo: regresa a la cola con lo que hizo falta y una foto" onclick="abrirReabrirTrabajo(\'' + f.registro_id + '\')">Volver a abrir</button>';
     }
-    var badgeClase = f.estado === 'Completada' ? 'activo' : (f.estado === 'Saltada' ? 'inactivo' : (f.estado === 'Pausado' ? 'pausado' : ''));
+    var badgeClase = (f.estado === 'Completada' || terminado) ? 'activo' : (f.estado === 'Saltada' ? 'inactivo' : (f.estado === 'Pausado' ? 'pausado' : ''));
     // Quien puede cargar tareas reordena cualquier pendiente; el reordenamiento anterior (solo tickets urgentes)
     // queda para quien atiende tickets sin permiso de cargar tareas.
-    if (permisos.CARGAR_MODIFICAR_TAREAS && f.estado === 'Pendiente') {
+    if (permisos.CARGAR_MODIFICAR_TAREAS && f.estado === 'Pendiente' && !terminado) {
       botones += '<button class="secundario" title="Subir un lugar" onclick="moverTareaColaUI(\'' + f.registro_id + '\', \'subir\')">&#9650;</button>' +
       '<button class="secundario" title="Bajar un lugar" onclick="moverTareaColaUI(\'' + f.registro_id + '\', \'bajar\')">&#9660;</button>' +
       '<input type="number" min="1" id="movpos_' + f.registro_id + '" placeholder="#" title="Nueva posición" style="width:58px;">' +
       '<button class="secundario" title="Mover a la posición escrita" onclick="moverTareaColaAPosicionUI(\'' + f.registro_id + '\')">Mover</button>';
     }
-    var puedeReordenar = permisos.ATENDER_TICKET && !permisos.CARGAR_MODIFICAR_TAREAS && f.tipo_origen === 'Ticket' && f.prioridad === 'Alta' && (f.estado === 'Pendiente' || f.estado === 'En proceso');
+    var puedeReordenar = permisos.ATENDER_TICKET && !permisos.CARGAR_MODIFICAR_TAREAS && f.tipo_origen === 'Ticket' && f.prioridad === 'Alta' && !terminado && (f.estado === 'Pendiente' || f.estado === 'En proceso');
     if (puedeReordenar) {
       botones += '<button class="secundario" title="Subir prioridad" onclick="moverTicketColaUI(\'' + f.registro_id + '\', \'subir\')">&#9650;</button>' +
       '<button class="secundario" title="Bajar prioridad" onclick="moverTicketColaUI(\'' + f.registro_id + '\', \'bajar\')">&#9660;</button>';
@@ -442,7 +443,7 @@ function pintarColaHoy(filas) {
     return '<tr>' +
     '<td>' + escapar_(f.posicion || f.orden_cola) + '</td>' +
     '<td>' + escapar_(f.nombre_tarea) + ligaFotosAntes_(f.fotos_antes) + (f.area_o_equipo_asociado ? ' <span class="pequeno">(' + escapar_(f.area_o_equipo_asociado) + ')</span>' : '') + (f.tipo_origen && f.tipo_origen !== 'Catalogo' ? ' <span class="pequeno">[' + escapar_(f.tipo_origen) + (f.prioridad ? ' ' + escapar_(f.prioridad) : '') + ']</span>' : '') + (f.motivo_salto ? '<br><span class="pequeno">Motivo solicitado: ' + escapar_(f.motivo_salto) + '</span>' : '') + (f.motivo_reapertura ? '<br><span class="pequeno" style="color:#b3261e;font-weight:600;">Reabierto' + (f.reabierto_veces > 1 ? ' (' + f.reabierto_veces + ' veces)' : '') + (f.reabierto_por ? ' por ' + escapar_(f.reabierto_por) : '') + ' — falta: ' + escapar_(f.motivo_reapertura) + '</span>' + (f.tipo_origen !== 'Ticket' ? ligaFotosAntes_(f.fotos_reapertura) : '') : '') + (f.oculto_motivo ? '<br><span class="pequeno"><b>Oculto en la cola:</b> ' + escapar_(f.oculto_motivo) + '</span>' : '') + (f.estado === 'Pausado' ? '<br><span class="pequeno"><b>Pausado</b>' + (f.pausado_por ? ' por ' + escapar_(f.pausado_por) : '') + (f.motivo_pausa ? ': ' + escapar_(f.motivo_pausa) : '') + (f.tiempo_acumulado_segundos ? ' · llevaba ' + Math.round(f.tiempo_acumulado_segundos / 60) + ' min' : '') + '</span>' : '') + '</td>' +
-    '<td><span class="badge ' + badgeClase + '">' + escapar_(f.estado) + '</span></td>' +
+    '<td><span class="badge ' + badgeClase + '">' + escapar_(terminado ? 'Atendido' : f.estado) + '</span></td>' +
     '<td>' + escapar_(f.usuario_asignado_actual) + '</td>' +
     '<td>' + (f.hora_inicio ? new Date(f.hora_inicio).toLocaleTimeString() : '') + '</td>' +
     '<td>' + (f.hora_fin ? new Date(f.hora_fin).toLocaleTimeString() : '') + '</td>' +
@@ -921,6 +922,8 @@ function abrirReabrirTrabajo(registroId) {
   document.getElementById('rb_registro_id').value = registroId;
   document.getElementById('rb_nombre').textContent = fila ? fila.nombre_tarea : registroId;
   document.getElementById('rb_motivo').value = '';
+  var etiquetaFoto = document.querySelector('label[for="rb_foto"]');
+  if (etiquetaFoto) etiquetaFoto.textContent = (fila && fila.tipo_origen === 'Ticket') ? 'Fotos de lo que hace falta (opcional, máximo ' + MAX_FOTOS_REABRIR + ')' : 'Fotos de lo que hace falta (al menos una, máximo ' + MAX_FOTOS_REABRIR + ')';
   FOTOS_REABRIR = [];
   pintarFotosReabrir_();
   var t = document.getElementById('tarjetaReabrirTrabajo');
@@ -969,7 +972,8 @@ function confirmarReabrirTrabajoUI() {
   var motivo = document.getElementById('rb_motivo').value.trim();
   var nombre = document.getElementById('rb_nombre').textContent;
   if (!motivo) { mostrarError('Escribe qué hizo falta.'); return; }
-  if (!FOTOS_REABRIR.length) { mostrarError('Agrega al menos una foto de lo que hace falta.'); return; }
+  var filaRb = (ESTADO.colaHoy || []).find(function (f) { return f.registro_id === registroId; });
+  if (!FOTOS_REABRIR.length && !(filaRb && filaRb.tipo_origen === 'Ticket')) { mostrarError('Agrega al menos una foto de lo que hace falta.'); return; }
   var boton = document.getElementById('rb_boton');
   var total = FOTOS_REABRIR.length;
   var restaurar = function () { if (boton) { boton.disabled = false; boton.textContent = 'Volver a abrir'; } };
