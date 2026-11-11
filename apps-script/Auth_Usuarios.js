@@ -367,7 +367,7 @@ function usuarioParaCliente_(obj) {
 function login(usuario, password) {
   if (!columnasAuthListas_()) return { ok: false, mensaje: MENSAJE_AUTH_NO_PREPARADA_ };
   usuario = String(usuario || '').trim().toLowerCase();
-  var encontrado = buscarFilaPorValor_(HOJAS.USUARIOS, 'usuario', usuario, true);
+  var encontrado = buscarUsuarioPorIdentificador_(usuario); // acepta usuario o correo
   if (!encontrado) return { ok: false, mensaje: 'Usuario o contraseña incorrectos.' };
 
   var obj = encontrado.fila.obj;

@@ -493,3 +493,10 @@ Pendiente: **Fase 2** (recepción de datos de la otra app de Apps Script), pausa
 - Se quitaron `registrarAccionGas` y `marcarGasProbador_` (la foto ya no se toma en la Bitácora). `PROBADOR_URL_POR_DEFECTO` apunta ahora a la implementación vigente "Aplicación de servicios" (la anterior era una versión vieja).
 - Probador publicado como versión 15 de su proyecto; su código vive en `codigo/probador-ocr/` (fuera de este repositorio).
 - `pruebas/sim_gas_probador.js`: 13 casos (evaluación y tiempo).
+
+## Cambios 2026-11-11 (entrar al Probador con usuario o correo)
+
+- `Auth_Usuarios.js` (`login`): ahora acepta usuario o correo (usa `buscarUsuarioPorIdentificador_`).
+- Probador (`codigo/probador-ocr/`, fuera de este repositorio): `loginConUsuario` valida usuario/correo y contraseña contra la Bitácora (`BITACORA_API_URL`, acción `call` → `login`) y abre una sesión de 6 h por el correo registrado en su hoja Usuarios; `pwaLlamar` ejecuta las funciones permitidas con esa sesión; `index.html` muestra "Entrar con tu usuario" cuando la cuenta de Google no se reconoce.
+- Probador: `appsscript.json` vuelve a `access: ANYONE` (cuenta de Google identificada), como en su versión 14.
+- `pruebas/sim_probador_login.js`: 10 casos (`node pruebas/sim_probador_login.js ../codigo/probador-ocr`).
